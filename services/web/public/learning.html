@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Learning — Cloud and DevOps</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Instrument+Serif:ital@1&family=Inter+Tight:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <header class="nav"><div class="wrap nav-in">
+    <a class="logo" href="index.html"><img class="brand" src="logos/brand-logo.jpg" alt=""> Cloud and DevOps</a>
+    <nav class="links">
+      <a href="learning.html">My Learning</a>
+      <a href="index.html#apps">Books</a>
+      <a href="index.html#evolution">Cloud</a>
+      <a href="index.html#devops">DevOps</a>
+    </nav>
+    <div class="nav-actions">
+      <span id="auth-slot"></span>
+      <a class="cart-link" href="cart.html">Cart <span id="cart-count">0</span></a>
+    </div>
+  </div></header>
+  <section class="story wrap">
+    <p class="kicker">your shelf, purchases, and exams</p>
+    <h2 class="display">My <em>Learning</em></h2>
+    <p>Sit an exam after you buy a book. Pass is 70 or above.</p>
+    <div class="learn-hub">
+      <a class="plan" href="exam.html"><b>Exam</b><p>Sit the paper. Pass is 70.</p></a>
+      <a class="plan" href="labs.html"><b>Labs</b><p>Terraform, EKS, MLOps.</p></a>
+      <a class="plan" href="certificates.html"><b>Certificates</b><p>Issued when you pass.</p></a>
+      <a class="plan" href="leaderboard.html"><b>Leaderboard</b><p>Highest scores first.</p></a>
+      <a class="plan" href="community.html"><b>Community</b><p>Ask like you would at work.</p></a>
+    </div>
+    <h3 class="display sm">Who purchased</h3>
+    <table class="table"><thead><tr><th>Name</th><th>Email</th><th>Books</th><th>When</th></tr></thead><tbody id="orders"></tbody></table>
+    <h3 class="display sm" style="margin-top:48px">Exam pass / fail</h3>
+    <table class="table"><thead><tr><th>Email</th><th>Book</th><th>Score</th><th>Result</th></tr></thead><tbody id="exams"></tbody></table>
+  </section>
+  <script src="assets/shop.js"></script>
+</body>
+</html>

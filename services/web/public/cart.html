@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cart — CloudOps Academy</title>
+  <link rel="stylesheet" href="assets/app.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="nav"><div class="wrap nav-in">
+    <a class="logo" href="index.html"><span class="mark">CA</span> CloudOps</a>
+    <nav class="links">
+      <a href="learning.html">My Learning</a>
+      <a href="index.html#apps">Books</a>
+      <a href="index.html#evolution">Cloud</a>
+      <a href="index.html#devops">DevOps</a>
+    </nav>
+    <div class="nav-actions">
+      <span id="auth-slot"></span>
+      <a class="cart-link" href="cart.html">Cart <span id="cart-count">0</span></a>
+    </div>
+  </div></header>
+  <section class="story wrap">
+    <h2>Your cart</h2>
+    <p>Purchase writes who bought which book. Then sit the exam — pass is 70 or above.</p>
+    <table class="table"><thead><tr><th>Book</th><th>Qty</th><th>Total</th></tr></thead><tbody id="cart-list"></tbody></table>
+    <form id="buy-form" class="plan" style="margin-top:24px;max-width:480px">
+      <label>Name</label><input name="name" required style="width:100%;margin:8px 0 12px;padding:10px;border-radius:12px;border:1px solid #eadfd8">
+      <label>Email</label><input name="email" type="email" required style="width:100%;margin:8px 0 12px;padding:10px;border-radius:12px;border:1px solid #eadfd8">
+      <button class="btn plum" type="submit">Purchase</button>
+      <p id="buy-note" class="note" style="display:none"></p>
+    </form>
+  </section>
+  <script src="assets/shop.js"></script>
+  <script>document.getElementById("buy-form").addEventListener("submit",()=>{document.getElementById("buy-note").style.display="block"})</script>
+</body>
+</html>

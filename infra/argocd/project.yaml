@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cloudops
+  namespace: argocd
+spec:
+  description: Cloud and DevOps — Dev, QA, Production
+  sourceRepos:
+    - https://github.com/Devopsawsr/cloudops-microservices-platform.git
+  destinations:
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+    - namespace: cloudops-dev
+      server: https://kubernetes.default.svc
+    - namespace: cloudops-qa
+      server: https://kubernetes.default.svc
+    - namespace: cloudops-prod
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

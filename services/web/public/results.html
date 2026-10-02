@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Purchases and exams — CloudOps Academy</title>
+  <link rel="stylesheet" href="assets/app.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="nav"><div class="wrap nav-in">
+    <a class="logo" href="index.html"><span class="mark">CA</span> CloudOps</a>
+    <nav class="links">
+      <a href="learning.html">My Learning</a>
+      <a href="index.html#apps">Books</a>
+      <a href="index.html#evolution">Cloud</a>
+      <a href="index.html#devops">DevOps</a>
+    </nav>
+    <div class="nav-actions">
+      <span id="auth-slot"></span>
+      <a class="cart-link" href="cart.html">Cart <span id="cart-count">0</span></a>
+    </div>
+  </div></header>
+  <section class="story wrap">
+    <h2>Who purchased</h2>
+    <table class="table"><thead><tr><th>Name</th><th>Email</th><th>Books</th><th>When</th></tr></thead><tbody id="orders"></tbody></table>
+    <h2 style="margin-top:48px">Exam pass / fail</h2>
+    <table class="table"><thead><tr><th>Email</th><th>Book</th><th>Score</th><th>Result</th></tr></thead><tbody id="exams"></tbody></table>
+  </section>
+  <script src="assets/shop.js"></script>
+</body>
+</html>

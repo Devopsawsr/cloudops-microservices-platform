@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cloudops-prod
+commonLabels:
+  env: production
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - ../../base
+patchesStrategicMerge:
+  - gateway-lb.yaml
+replicas:
+  - name: gateway
+    count: 2
+  - name: web
+    count: 2
+  - name: auth
+    count: 2
+  - name: certificates
+    count: 2
+images:
+  - name: cloudops/gateway
+    newName: REPLACE_ECR/cloudops-gateway
+    newTag: "0.1"
+  - name: cloudops/web
+    newName: REPLACE_ECR/cloudops-web
+    newTag: "0.1"
+  - name: cloudops/auth
+    newName: REPLACE_ECR/cloudops-auth
+    newTag: "0.1"
+  - name: cloudops/catalog
+    newName: REPLACE_ECR/cloudops-catalog
+    newTag: "0.1"
+  - name: cloudops/cart
+    newName: REPLACE_ECR/cloudops-cart
+    newTag: "0.1"
+  - name: cloudops/orders
+    newName: REPLACE_ECR/cloudops-orders
+    newTag: "0.1"
+  - name: cloudops/learning
+    newName: REPLACE_ECR/cloudops-learning
+    newTag: "0.1"
+  - name: cloudops/labs
+    newName: REPLACE_ECR/cloudops-labs
+    newTag: "0.1"
+  - name: cloudops/community
+    newName: REPLACE_ECR/cloudops-community
+    newTag: "0.1"
+  - name: cloudops/certificates
+    newName: REPLACE_ECR/cloudops-certificates
+    newTag: "0.1"
+  - name: cloudops/leaderboard
+    newName: REPLACE_ECR/cloudops-leaderboard
+    newTag: "0.1"

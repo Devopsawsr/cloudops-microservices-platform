@@ -1,0 +1,45 @@
+services:
+  gateway:
+    build: { context: ., dockerfile: services/gateway/Dockerfile }
+    ports: ["80:80"]
+    depends_on: [web, auth, catalog, cart, orders, learning, labs, community, certificates, leaderboard]
+  web:
+    build: { context: ., dockerfile: services/web/Dockerfile }
+  auth:
+    build: { context: ., dockerfile: services/auth/Dockerfile }
+    environment: [DATA_DIR=/data]
+    volumes: [shop-data:/data]
+  catalog:
+    build: { context: ., dockerfile: services/catalog/Dockerfile }
+  cart:
+    build: { context: ., dockerfile: services/cart/Dockerfile }
+    environment: [DATA_DIR=/data]
+    volumes: [shop-data:/data]
+  orders:
+    build: { context: ., dockerfile: services/orders/Dockerfile }
+    environment: [DATA_DIR=/data]
+    volumes: [shop-data:/data]
+  learning:
+    build: { context: ., dockerfile: services/learning/Dockerfile }
+    environment:
+      - DATA_DIR=/data
+      - CERTIFICATES_URL=http://certificates:8080
+    volumes: [shop-data:/data]
+  labs:
+    build: { context: ., dockerfile: services/labs/Dockerfile }
+  community:
+    build: { context: ., dockerfile: services/community/Dockerfile }
+    environment: [DATA_DIR=/data]
+    volumes: [shop-data:/data]
+  certificates:
+    build: { context: ., dockerfile: services/certificates/Dockerfile }
+    environment: [DATA_DIR=/data]
+    volumes: [shop-data:/data]
+  leaderboard:
+    build: { context: ., dockerfile: services/leaderboard/Dockerfile }
+    environment:
+      - LEARNING_URL=http://learning:8080
+      - DATA_DIR=/data
+    volumes: [shop-data:/data]
+volumes:
+  shop-data:

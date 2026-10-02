@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exam — CloudOps Academy</title>
+  <link rel="stylesheet" href="assets/app.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="nav"><div class="wrap nav-in">
+    <a class="logo" href="index.html"><span class="mark">CA</span> CloudOps</a>
+    <nav class="links">
+      <a href="learning.html">My Learning</a>
+      <a href="index.html#apps">Books</a>
+      <a href="index.html#evolution">Cloud</a>
+      <a href="index.html#devops">DevOps</a>
+    </nav>
+    <div class="nav-actions">
+      <span id="auth-slot"></span>
+      <a class="cart-link" href="cart.html">Cart <span id="cart-count">0</span></a>
+    </div>
+  </div></header>
+  <section class="story wrap">
+    <h2>Sit the exam</h2>
+    <p>Use the same email you purchased with. 70 or above is PASS.</p>
+    <form id="exam-form" class="plan" style="max-width:480px">
+      <label>Email</label><input name="email" type="email" required style="width:100%;margin:8px 0 12px;padding:10px;border-radius:12px;border:1px solid #eadfd8">
+      <label>Book</label><select name="book_id" style="width:100%;margin:8px 0 12px;padding:10px;border-radius:12px;border:1px solid #eadfd8"></select>
+      <label>Score (0–100)</label><input name="score" type="number" min="0" max="100" value="72" required style="width:100%;margin:8px 0 12px;padding:10px;border-radius:12px;border:1px solid #eadfd8">
+      <button class="btn plum" type="submit">Submit exam</button>
+      <p id="exam-note"></p>
+    </form>
+  </section>
+  <script src="assets/shop.js"></script>
+</body>
+</html>

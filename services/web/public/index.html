@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cloud and DevOps — Cloud, DevOps, AI, and the next ten years</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Instrument+Serif:ital@0;1&family=Kalam:wght@700&family=Inter+Tight:wght@700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+    <header class="nav">
+    <div class="wrap nav-in">
+      <a class="logo" href="#top"><img class="brand" src="logos/brand-logo.jpg" alt=""><span class="wordmark"><i>Cloud</i> <b>and</b> <em>DevOps</em></span></a>
+      <nav class="links">
+        <a href="learning.html">My Learning</a>
+        <a href="#apps">Books</a>
+        <a href="#evolution">Cloud</a>
+        <a href="#devops">DevOps</a>
+        <a href="#platform">Kubernetes Lab</a>
+      </nav>
+      <div class="nav-actions">
+        <span id="auth-slot"></span>
+        <a class="cart-link" href="cart.html">Cart <span id="cart-count">0</span></a>
+      </div>
+    </div>
+  </header>
+
+  <section id="top" class="wrap hero">
+    <h1 class="hero-hand">ALL your cloud <em>Skills</em><br>on <span class="mark-sun">one platform</span></h1>
+    <p class="hand hero-sub">Simple, efficient, yet complete!</p>
+    <p class="lead">Not one book on a page. A full academy: every DevOps tool as an icon, every era of Cloud written out — where we came from, where AI is taking us, and what the job looks like in ten years.</p>
+  </section>
+
+  <section id="apps" class="apps">
+    <div class="wrap">
+      <div class="wall" id="book-wall"></div>
+    </div>
+  </section>
+
+  <section id="platform" class="platform-proof">
+    <div class="wrap">
+      <p class="kicker light">built as an end-to-end platform engineering lab</p>
+      <h2 class="display">Microservices running through a <em>Kubernetes gateway</em></h2>
+      <p class="platform-lead">Eleven independently built containers are deployed with health probes, resource controls, environment overlays, autoscaling and GitOps-ready manifests.</p>
+      <div class="platform-grid">
+        <article><strong>11</strong><span>Container images</span><small>Gateway, web and nine APIs</small></article>
+        <article><strong>3</strong><span>Environment overlays</span><small>Development, QA and production</small></article>
+        <article><strong>2</strong><span>Health probes</span><small>Readiness and liveness per workload</small></article>
+        <article><strong>GitOps</strong><span>Argo CD delivery</span><small>Automated dev/QA and controlled production</small></article>
+      </div>
+      <div class="platform-flow" aria-label="Deployment workflow">
+        <span>GitHub</span><b>→</b><span>CI &amp; image scan</span><b>→</b><span>Container registry</span><b>→</b><span>Kubernetes</span><b>→</b><span>Gateway</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="logs" class="story wrap">
+    <p class="kicker">same commands you run at work</p>
+    <h2 class="display">Actual <em>Infrastructure</em> <span class="grad">Logs</span></h2>
+    <p>This is what current vs after apply / after rollout looks like — not a screenshot of a book cover.</p>
+    <p class="kicker" style="margin-top:28px">plan, then apply</p>
+    <h3 class="display sm">Terraform <em>at Scale</em></h3>
+    <div class="log-grid">
+      <div class="log">
+        <h3>terraform plan (now)</h3>
+<pre>Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # aws_eks_node_group.apps will be updated in-place
+  ~ instance_types = ["t3.medium"] -> ["t3.large"]
+
+  # aws_s3_bucket.exam_pass will be created
+  + resource "aws_s3_bucket" "exam_pass" {
+      + bucket = "reddy-buddu"
+    }
+
+Plan: 1 to add, 1 to change, 0 to destroy.</pre>
+      </div>
+      <div class="log">
+        <h3>terraform apply (after)</h3>
+<pre>aws_s3_bucket.exam_pass: Creating...
+aws_eks_node_group.apps: Modifying... [id=demo:apps]
+aws_s3_bucket.exam_pass: Creation complete after 3s
+aws_eks_node_group.apps: Modifications complete after 2m11s
+
+Apply complete! Resources: 1 added, 1 changed, 0 destroyed.
+
+Outputs:
+cluster_name = "demo"
+node_type    = "t3.large"</pre>
+      </div>
+    </div>
+    <p class="kicker" style="margin-top:36px">rollout, then prove it</p>
+    <h3 class="display sm"><em>Kubernetes</em> in Production</h3>
+    <div class="log-grid">
+      <div class="log">
+        <h3>kubectl get (now)</h3>
+<pre>$ kubectl get nodes
+NAME                          STATUS   ROLES    AGE   VERSION
+ip-10-0-3-18.ec2.internal     Ready    &lt;none&gt;   41d   v1.31.4
+ip-10-0-4-27.ec2.internal     Ready    &lt;none&gt;   41d   v1.31.4
+
+$ kubectl get pods -n academy
+NAME                         READY   STATUS    RESTARTS   AGE
+web-6d8c9f7b4-nx2k4          1/1     Running   0          12d
+api-5f7d8c6a9-p1q2r          1/1     Running   0          12d</pre>
+      </div>
+      <div class="log">
+        <h3>kubectl rollout (after)</h3>
+<pre>$ kubectl rollout status deploy/web -n academy
+Waiting for deployment "web" rollout to finish: 1 old replicas are pending termination...
+deployment "web" successfully rolled out
+
+$ kubectl get pods -n academy -o wide
+NAME                         READY   STATUS    AGE   NODE
+web-8c4b7d2f1-k9m1s          1/1     Running   38s   ip-10-0-3-18
+api-5f7d8c6a9-p1q2r          1/1     Running   12d   ip-10-0-4-27</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="evolution" class="evo">
+    <span class="cloud-orb o1" aria-hidden="true"></span>
+    <span class="cloud-orb o2" aria-hidden="true"></span>
+    <span class="cloud-orb o3" aria-hidden="true"></span>
+    <div class="wrap evo-head">
+      <p class="kicker">Traditional IT → Cloud Native → AI Powered Future</p>
+      <h2 class="display">The Evolution of <span class="grad">Cloud Computing</span></h2>
+      <p class="hand evo-note">Stop scrolling. This is the whole journey on one stage.</p>
+    </div>
+    <figure class="pano">
+      <img src="art/cloud-evolution-journey.jpg" alt="Traditional datacenter evolving into cloud native platforms and an AI-powered future">
+      <figcaption>
+        <span>Past · racks and cables</span>
+        <span>Present · AWS, EKS, GitOps</span>
+        <span>Future · autonomous platforms</span>
+      </figcaption>
+    </figure>
+    <div class="wrap era-grid">
+      <article class="era-card past">
+        <img src="art/legacy-datacenter.jpg" alt="Legacy datacenter aisle with server racks and network cables">
+        <div>
+          <p class="kicker">1990s — early 2000s</p>
+          <h3>Physical <em>servers</em></h3>
+          <ul>
+            <li>Physical servers</li>
+            <li>Data centers</li>
+            <li>Monolithic applications</li>
+            <li>Manual deployments</li>
+            <li>Network cables and racks</li>
+          </ul>
+        </div>
+      </article>
+      <article class="era-card now">
+        <img src="art/present-cloud-native.jpg" alt="Present cloud native AWS EKS and GitOps">
+        <div class="now-logos">
+          <img src="logos/amazonwebservices.svg" alt="AWS">
+          <img src="logos/kubernetes.svg" alt="Kubernetes">
+          <img src="logos/terraform.svg" alt="Terraform">
+          <img src="logos/githubactions.svg" alt="GitHub Actions">
+          <img src="logos/argo.svg" alt="Argo CD">
+          <img src="logos/prometheus.svg" alt="Prometheus">
+          <img src="logos/grafana.svg" alt="Grafana">
+          <img src="logos/opentelemetry.svg" alt="OpenTelemetry">
+        </div>
+        <div>
+          <p class="kicker">Present</p>
+          <h3>Public <em>Cloud</em></h3>
+          <ul>
+            <li>Public cloud · AWS · Azure</li>
+            <li>Kubernetes · DevOps · CI/CD</li>
+            <li>EKS · Terraform · GitHub Actions</li>
+            <li>Argo CD · Prometheus · Grafana</li>
+            <li>OpenTelemetry · Platform engineering</li>
+          </ul>
+        </div>
+      </article>
+      <article class="era-card next">
+        <img src="art/ai-future-platform.jpg" alt="AI agents and autonomous infrastructure">
+        <div>
+          <p class="kicker">The next decade</p>
+          <h3>Future of <em>AI</em> &amp; platforms</h3>
+          <ul>
+            <li>AI agents</li>
+            <li>Autonomous infrastructure</li>
+            <li>AIOps · self-healing platforms</li>
+            <li>Multi-cloud mesh</li>
+            <li>Intelligent observability</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+    <div class="wrap evo-head" id="architecture">
+      <p class="kicker">from the edge to the cluster</p>
+      <h2 class="display">Production <em>Architecture</em> <span class="grad">on AWS</span></h2>
+    </div>
+    <div class="arch">
+      <img class="arch-bg" src="art/cloud-architecture-stage.jpg" alt="Photoreal AWS production architecture from users to EKS and data plane">
+      <svg class="arch-flow" viewBox="0 0 1200 720" preserveAspectRatio="none" aria-hidden="true">
+        <path class="pulse" d="M600 40 C600 90,600 90,600 140"/>
+        <path class="pulse d2" d="M600 180 C600 230,600 230,600 280"/>
+        <path class="pulse d3" d="M600 320 C600 370,600 370,600 420"/>
+        <path class="pulse" d="M600 460 C600 510,600 510,600 560"/>
+        <path class="pulse side" d="M600 500 C780 500,860 220,980 180"/>
+        <path class="pulse side d2" d="M600 520 C780 540,860 360,980 340"/>
+        <path class="pulse side d3" d="M600 540 C780 580,860 500,980 500"/>
+        <path class="pulse side" d="M600 560 C420 560,340 220,220 180"/>
+        <path class="pulse side d2" d="M600 580 C420 600,340 360,220 340"/>
+        <path class="pulse side d3" d="M600 600 C420 640,340 500,220 520"/>
+      </svg>
+      <div class="stack">
+        <div class="glass">Users</div>
+        <div class="glass">CloudFront</div>
+        <div class="glass">WAF</div>
+        <div class="glass">Load Balancer</div>
+        <div class="glass accent">EKS Cluster</div>
+        <div class="glass">Microservices</div>
+      </div>
+      <aside class="deps">
+        <div><img src="logos/postgresql.svg" alt=""> RDS PostgreSQL</div>
+        <div><img src="logos/redis.svg" alt=""> Redis</div>
+        <div><img src="logos/opensearch.svg" alt=""> OpenSearch</div>
+        <div><img src="logos/amazonwebservices.svg" alt=""> S3</div>
+        <div><img src="logos/mlflow.svg" alt=""> MLflow</div>
+        <div><img src="logos/prometheus.svg" alt=""> Prometheus</div>
+        <div><img src="logos/grafana.svg" alt=""> Grafana</div>
+        <div><img src="logos/opentelemetry.svg" alt=""> Loki / OTel</div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="cloud" class="story wrap">
+    <p class="kicker">the factory you rent by the hour</p>
+    <h2 class="display">What <em>Cloud</em> actually is</h2>
+    <p>Cloud is not “someone else’s computer” as a joke. It is a factory for compute, storage, network, and identity that you rent by the hour, the request, or the gigabyte. AWS, Azure, and GCP took the same building blocks a datacenter team used to purchase — racks, SAN, firewalls, load balancers — and turned them into APIs.</p>
+    <p>That change is the whole story. When a server was a purchase order, you planned capacity once a year. When a server is <code>RunInstances</code>, you plan for the next ten minutes. Cloud is why a two-person team can look like a platform company, and why a platform company can waste a fortune if nobody watches the bill.</p>
+    <p>Cloud and DevOps starts here on purpose. You cannot talk about Kubernetes, Terraform, or MLOps until you can draw a VPC, name an IAM role, put an object in S3, and explain why the security group is not a firewall you ignore.</p>
+  </section>
+
+  <section id="devops" class="story wrap">
+    <p class="kicker">habit, not a job title</p>
+    <h2 class="display">What <em>DevOps</em> actually is</h2>
+    <p>DevOps is not a job title you add to LinkedIn. It is the decision that the people who write the software also own how it gets to production, how it stays up, and how it is changed again on Tuesday. Development and operations used to throw tickets over a wall. DevOps removed the wall and kept the tickets honest: a pipeline, a review, a rollback.</p>
+    <p>The tools — Git, Jenkins, GitHub Actions, Ansible, Docker, Terraform, Prometheus, Grafana — are how that decision becomes muscle memory. A pipeline that tests, a plan you read before apply, a dashboard that tells you the site is quiet at 3 a.m. That is DevOps. A certification with no scar tissue is not.</p>
+    <ul>
+      <li>Source of truth lives in Git, not in a wiki that drifted.</li>
+      <li>Every change is reviewable: pull request, Terraform plan, Helm diff.</li>
+      <li>Production is boring: same image, same chart, same alarm, every time.</li>
+      <li>When it breaks, the same people who shipped it can see the metrics and roll back.</li>
+    </ul>
+    <div class="logo-stage">
+      <figure>
+        <img src="art/devops-infinity.png" alt="Dev and Ops infinity loop from code to operate">
+        <figcaption class="kicker">one loop: Dev and Ops</figcaption>
+      </figure>
+      <figure>
+        <img src="art/devops-implementation.png" alt="DevOps implementation process with connected gears">
+        <figcaption class="kicker">assess, automate, improve</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="past" class="story band">
+    <div class="wrap">
+      <p class="kicker">before the credit card was a datacenter</p>
+      <h2 class="display">How Cloud was in the <em>Past</em></h2>
+      <div class="era"><strong>1990s–2000s</strong><div><p>You bought a server. You waited weeks. You installed Linux by hand. You named it after a planet. When it died, the site died with it. Releases were weekend events. A rollback meant a person with a CD and a prayer.</p></div></div>
+      <div class="era"><strong>Virtualization</strong><div><p>VMware and later OpenStack let you slice one box into many. Faster, still yours to patch. Tickets moved from “buy a server” to “please provision a VM.” Operations still owned the keys. Developers still waited.</p></div></div>
+      <div class="era"><strong>2006–2013</strong><div><p>AWS opened EC2 and S3. Suddenly a credit card was a datacenter. Early Cloud was still treated like a cheaper colo: long-lived instances, SSH, snowflake configs. DevOps as a word arrived (2009, Velocity, “10+ deploys a day”). The first CI servers and configuration tools — Hudson/Jenkins, Puppet, Chef, then Ansible — tried to make those snowflakes repeatable.</p></div></div>
+      <div class="era"><strong>2013–2018</strong><div><p>Docker made the unit of work an image. Kubernetes (2014, then EKS later) made the unit of runtime a cluster. Terraform made the unit of infrastructure a plan. GitHub and GitLab made the unit of change a pull request. This is the stack most “DevOps engineers” still mean when they say the word.</p></div></div>
+      <div class="era"><strong>2018–2024</strong><div><p>GitOps (Argo CD, Flux), service mesh, observability (Prometheus, Grafana, OpenTelemetry), and platform teams. The job split: some people still SSH, some people sell an internal platform so application teams never see the cluster. MLOps borrowed the same loop for models: train, register, deploy, watch.</p></div></div>
+    </div>
+  </section>
+
+  <section id="future" class="story wrap">
+    <p class="kicker">mid-sentence, right now</p>
+    <h2 class="display">Cloud <em>Native</em> <span class="grad">Present</span></h2>
+    <p>Right now the industry is mid-sentence. Kubernetes is default for new platforms and still too much for a single VM shop. Terraform and OpenTofu fight over the language of plan/apply. CI is a commodity (GitHub Actions, GitLab, Jenkins that will not die). The new work is not “can you write a Deployment YAML.” The new work is cost, security, and a golden path that a product team can use without paging you.</p>
+    <p>Cloud is also getting smaller and larger at the same time. Smaller: serverless, edge, one-function services. Larger: multi-account AWS, landing zones, Control Tower, org-wide SCPs. A good engineer can do both — a Lambda that stays cheap, and an org that does not become a permission swamp.</p>
+    <p>What is already arriving: platforms as products (Backstage, Internal Developer Platforms), policy as code (OPA, Kyverno), supply-chain security (SBOMs, signed images), and FinOps sitting in the same standup as SRE. If you only learn kubectl, you will be the person who is still SSHing while the platform team versions the path you should have been on.</p>
+  </section>
+
+  <section id="ai" class="story band-plum">
+    <div class="wrap">
+      <p class="kicker light">the junior you still review</p>
+      <h2 class="display">Future of <em>AI</em> &amp; <span class="grad light">Platform Engineering</span></h2>
+      <p>AI does not replace the person who understands blast radius. It replaces the empty twenty minutes: writing the fifth Helm values file, explaining a Terraform error you have seen before, drafting the runbook paragraph, summarizing last night’s page.</p>
+      <ul>
+        <li><b>Faster first draft.</b> A pipeline, a Grafana panel, a Terraform module — the model gets you to “almost.” You still read the plan.</li>
+        <li><b>Incident companion.</b> Paste logs, get a short list of likely causes. You still check the dashboard. You do not let the model restart prod because it sounded sure.</li>
+        <li><b>Docs that exist.</b> The thing DevOps always skipped. AI can turn a working repo into an operator page. A human still deletes the lies.</li>
+        <li><b>Exam and lab coach.</b> Cloud and DevOps uses a model to score “are you ready,” not to pretend you deployed Kubernetes.</li>
+        <li><b>What it must not do.</b> Apply Terraform unsupervised. kubectl delete on a hunch. Put secrets in the prompt. Invent a CVE fix you did not read.</li>
+      </ul>
+      <p>The useful rule: AI writes, humans approve, pipelines enforce. That is the same rule as code review. The model is another junior. You would not give a junior the prod account on day one.</p>
+    </div>
+  </section>
+
+  <section id="ten" class="story wrap">
+    <p class="kicker">the work remains, the label may not</p>
+    <h2 class="display">DevOps in <em>10 years</em></h2>
+    <p>In 2035 the word DevOps may sound like “webmaster” does now — a label from a fight that was already won. The work will still exist. It will look more like this:</p>
+    <div class="era"><strong>Platforms win</strong><div><p>Most product engineers will not open a cluster. They will open a portal, pick a golden path, and get a preview URL. Platform engineers will own those paths the way DBAs once owned the database. Kubernetes will still be underneath, the way Linux is underneath today: everywhere, rarely the thing you talk about in the standup.</p></div></div>
+    <div class="era"><strong>AI in the loop</strong><div><p>Pipelines will propose the change, the test, and the rollback. Humans will still hold the last approval for anything that can take a customer down. The scarce skill will be taste: knowing when the suggestion is dangerous.</p></div></div>
+    <div class="era"><strong>Cost is a feature</strong><div><p>Idle GPU, zombie load balancers, and multi-AZ by default will be treated like a bug. FinOps will not be a quarterly slide. It will be an alert next to latency.</p></div></div>
+    <div class="era"><strong>Security is the pipeline</strong><div><p>Unsigned images will not schedule. SBOMs will be as normal as a lockfile. Identity will be workload identity, not a shared SSH key in a password manager.</p></div></div>
+    <div class="era"><strong>Models are services</strong><div><p>MLOps and DevOps will finish merging. A model will have an owner, a budget, an SLO, and a rollback, the same as an API. If you learned only Docker, you will be late. If you learned the loop — build, prove, ship, watch — you will still be employed.</p></div></div>
+    <p>That is why this academy is not “one book on a page.” The book icons above are the chapters. The story is the job: Cloud as the factory, DevOps as the habit, AI as the junior, and ten years as the reason you keep learning the loop instead of a logo.</p>
+  </section>
+
+  <section id="books" class="story wrap">
+    <p class="kicker">the shelf, not one cover</p>
+    <h2 class="display">Every book is a <em>real title</em></h2>
+    <p>Click any icon above. Each one maps to a focused book: AWS Cloud Foundations, Terraform in Practice, Amazon EKS Operations, Docker and Containers, Ansible Automation, GitHub Actions Pipelines, Jenkins for CI, Git and Release Flow, Python for Operations, Observability with Prometheus and Grafana, OpenTelemetry, AI Engineering, Machine Learning, MLOps on AWS, Cloud Security, Linux, Helm, Serverless, SRE, and the exam packs. You do not get a single cover filling the screen. You get the whole shelf, the way Odoo shows the whole app wall.</p>
+  </section>
+
+  <section id="pricing" class="story band">
+    <div class="wrap">
+      <p class="kicker">one price. the whole shelf.</p>
+      <h2 class="display"><em>Pricing</em></h2>
+      <p class="hand" style="font-size:32px;color:#714b67">One price. The whole shelf.</p>
+      <div class="plans">
+        <div class="plan"><p>Start</p><div class="price">Free</div><p>The story, the icons, the architecture. Read everything on this page.</p></div>
+        <div class="plan pro"><p>Pro</p><div class="price">$29</div><p>Every book, every exam, every lab. One person.</p></div>
+        <div class="plan"><p>Team</p><div class="price">$79</div><p>Seats, blueprints, and an admin view of who is actually practicing.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <p class="wordmark on-dark"><i>Cloud</i> <b>and</b> <em>DevOps</em></p>
+      <p class="hand" style="font-size:26px;color:#ffc107">If you simplify everything, you can learn anything.</p>
+      <div class="cols">
+        <div>Books<br>Courses<br>Exams<br>Labs</div>
+        <div>Cloud<br>DevOps past<br>AI for DevOps<br>10 years</div>
+        <div>AWS · Kubernetes<br>Terraform · Ansible<br>MLOps · Security</div>
+        <div>Privacy<br>Terms<br>Contact</div>
+      </div>
+    </div>
+  </footer>
+  <script src="assets/shop.js"></script>
+</body>
+</html>

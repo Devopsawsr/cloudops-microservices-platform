@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login — CloudOps Academy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Kalam:wght@700&family=Inter+Tight:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <div class="brand-rain" aria-hidden="true"></div>
+  <header class="nav"><div class="wrap nav-in">
+    <a class="logo" href="index.html"><span class="mark">CA</span> CloudOps</a>
+    <nav class="links">
+      <a href="learning.html">My Learning</a>
+      <a href="index.html#apps">Books</a>
+      <a href="index.html#evolution">Cloud</a>
+      <a href="index.html#devops">DevOps</a>
+    </nav>
+    <div class="nav-actions">
+      <span id="auth-slot"></span>
+      <a class="cart-link" href="cart.html">Cart <span id="cart-count">0</span></a>
+    </div>
+  </div></header>
+  <section class="story wrap">
+    <h2 class="hero-hand" style="transform:none;font-size:64px;text-align:center">Welcome back</h2>
+    <p class="hand" style="text-align:center;font-size:32px;color:#714b67;margin-top:0">Login and keep learning.</p>
+    <form id="login-form" class="plan auth-card">
+      <label>Email</label>
+      <input class="field" name="email" type="email" required>
+      <label>Password</label>
+      <input class="field" name="password" type="password" required minlength="6">
+      <button class="btn plum" type="submit">Login</button>
+      <p id="login-note"></p>
+      <p class="auth-switch">New here? <a href="signup.html"><b>Sign up</b></a></p>
+    </form>
+  </section>
+  <script src="assets/shop.js"></script>
+</body>
+</html>

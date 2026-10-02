@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Community — Cloud and DevOps</title>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Instrument+Serif:ital@1&family=Inter+Tight:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <header class="nav"><div class="wrap nav-in">
+    <a class="logo" href="index.html"><img class="brand" src="logos/brand-logo.jpg" alt=""> Cloud and DevOps</a>
+    <nav class="links">
+      <a href="learning.html">My Learning</a>
+      <a href="index.html#apps">Books</a>
+      <a href="index.html#evolution">Cloud</a>
+      <a href="index.html#devops">DevOps</a>
+    </nav>
+    <div class="nav-actions">
+      <span id="auth-slot"></span>
+      <a class="cart-link" href="cart.html">Cart <span id="cart-count">0</span></a>
+    </div>
+  </div></header>
+  <section class="story wrap">
+    <p class="kicker">ask the way you would at work</p>
+    <h2 class="display">Community</h2>
+    <form id="thread-form" class="plan auth-card" style="margin-bottom:32px">
+      <label>Name</label><input class="field" name="name" required>
+      <label>Title</label><input class="field" name="title" required>
+      <label>Question</label><textarea class="field" name="body" rows="4" required></textarea>
+      <button class="btn plum" type="submit">Post</button>
+      <p id="thread-note"></p>
+    </form>
+    <div id="threads"></div>
+  </section>
+  <script src="assets/shop.js"></script>
+</body>
+</html>

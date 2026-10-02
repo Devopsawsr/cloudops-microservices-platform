@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leaderboard — Cloud and DevOps</title>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Instrument+Serif:ital@1&family=Inter+Tight:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <header class="nav"><div class="wrap nav-in">
+    <a class="logo" href="index.html"><img class="brand" src="logos/brand-logo.jpg" alt=""> Cloud and DevOps</a>
+    <nav class="links">
+      <a href="learning.html">My Learning</a>
+      <a href="index.html#apps">Books</a>
+      <a href="index.html#evolution">Cloud</a>
+      <a href="index.html#devops">DevOps</a>
+    </nav>
+    <div class="nav-actions">
+      <span id="auth-slot"></span>
+      <a class="cart-link" href="cart.html">Cart <span id="cart-count">0</span></a>
+    </div>
+  </div></header>
+  <section class="story wrap">
+    <p class="kicker">who is actually practicing</p>
+    <h2 class="display">Exam <em>Leaderboard</em></h2>
+    <p>Highest scores first. Fail still shows — the board is honest.</p>
+    <table class="table"><thead><tr><th>#</th><th>Email</th><th>Book</th><th>Score</th><th>Result</th></tr></thead><tbody id="board"></tbody></table>
+  </section>
+  <script src="assets/shop.js"></script>
+</body>
+</html>

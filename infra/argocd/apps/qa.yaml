@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudops-qa
+  namespace: argocd
+spec:
+  project: cloudops
+  source:
+    repoURL: https://github.com/Devopsawsr/cloudops-microservices-platform.git
+    targetRevision: main
+    path: infra/k8s/overlays/qa
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloudops-qa
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
