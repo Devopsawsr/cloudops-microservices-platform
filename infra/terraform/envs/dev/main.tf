@@ -4,28 +4,45 @@ data "aws_vpc" "default" {
   default = true
 }
 
-data "aws_subnets" "public" {
+# Explicitly select two EKS-supported AZs. Do not pass all VPC subnets.
+# us-east-1e is unsupported for EKS control-plane placement in this account.
+data "aws_subnets" "zone_a" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.default.id]
   }
-
+  filter {
+    name   = "availability-zone"
+    values = ["us-east-1a"]
+  }
   filter {
     name   = "map-public-ip-on-launch"
     values = ["true"]
   }
+}
 
-  # us-east-1e does not support EKS control plane placement.
-  # AWS's error lists the eligible zones for this region/account.
+data "aws_subnets" "zone_b" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
   filter {
     name   = "availability-zone"
-    values = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"]
+    values = ["us-east-1b"]
+  }
+  filter {
+    name   = "map-public-ip-on-launch"
+    values = ["true"]
   }
 }
 
-data "aws_subnet" "selected" {
-  for_each = toset(data.aws_subnets.public.ids)
-  id       = each.value
+locals {
+  # The default VPC normally has exactly one public subnet per AZ.
+  # one() fails safely if an AZ has zero or multiple matching subnets.
+  eks_subnet_ids = [
+    one(data.aws_subnets.zone_a.ids),
+    one(data.aws_subnets.zone_b.ids),
+  ]
 }
 
 data "aws_iam_policy_document" "cluster_assume" {
@@ -96,7 +113,7 @@ resource "aws_eks_cluster" "lab" {
   }
 
   vpc_config {
-    subnet_ids              = data.aws_subnets.public.ids
+    subnet_ids              = local.eks_subnet_ids
     endpoint_public_access  = true
     endpoint_private_access = false
   }
@@ -105,8 +122,8 @@ resource "aws_eks_cluster" "lab" {
 
   lifecycle {
     precondition {
-      condition     = length(distinct([for subnet in data.aws_subnet.selected : subnet.availability_zone])) >= 2
-      error_message = "At least two public subnets in different AZs are required. Check the default VPC."
+      condition     = alltrue([for id in local.eks_subnet_ids : id != null])
+      error_message = "Missing public subnet in us-east-1a or us-east-1b of the default VPC."
     }
   }
 }
@@ -115,7 +132,7 @@ resource "aws_eks_node_group" "lab" {
   cluster_name    = aws_eks_cluster.lab.name
   node_group_name = var.node_group_name
   node_role_arn   = aws_iam_role.node.arn
-  subnet_ids      = data.aws_subnets.public.ids
+  subnet_ids      = local.eks_subnet_ids
 
   instance_types = [var.node_instance_type]
   capacity_type  = "ON_DEMAND"
