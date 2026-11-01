@@ -4,6 +4,7 @@ resource "aws_eks_addon" "vpc_cni" {
   addon_name                  = "vpc-cni"
   resolve_conflicts_on_update = "OVERWRITE"
 
+  depends_on = [aws_iam_role_policy_attachment.cni]
 }
 
 resource "aws_eks_addon" "kube_proxy" {
