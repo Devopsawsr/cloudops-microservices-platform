@@ -5,7 +5,7 @@ variable "aws_region" {
 
 variable "cluster_name" {
   type    = string
-  default = "reddy-ebooks"
+  default = "buddu-ebooks"
 }
 
 variable "kubernetes_version" {
@@ -20,5 +20,5 @@ variable "node_group_name" {
 
 variable "node_instance_type" {
   type    = string
-  default = "t3.medium"
+  default = "t3.small"
 }
