@@ -57,12 +57,9 @@ jobs:
           terraform_version: "1.14.0"
 
       - name: Initialize remote Terraform state
-        env:
-          STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
         run: |
-          test -n "$STATE_BUCKET" || { echo "Set TF_STATE_BUCKET repository variable"; exit 1; }
           terraform init -input=false \
-            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="bucket=reddy-buddu" \
             -backend-config="key=cloudops/eks-lab/dev/terraform.tfstate" \
             -backend-config="region=us-east-1" \
             -backend-config="encrypt=true" \
