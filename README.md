@@ -70,6 +70,11 @@ newTag: 0.1-dev
 
 ## Deploy to kubeadm
 
+# Connect to EKS
+aws eks update-kubeconfig \
+  --name buddu-ebooks \
+  --region us-east-1 \
+  --profile eks-lab-user
 ```bash
 kubectl get nodes
 kubectl kustomize infra/k8s/overlays/dev >/tmp/cloudops-dev.yaml
