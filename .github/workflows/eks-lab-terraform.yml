@@ -1,0 +1,90 @@
+name: EKS Lab - Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Select Terraform operation"
+        type: choice
+        required: true
+        options:
+          - plan
+          - apply
+          - destroy
+      confirmation:
+        description: "For destroy, type DESTROY"
+        type: string
+        required: false
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: eks-lab-terraform
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/dev
+
+    env:
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      TF_IN_AUTOMATION: "true"
+
+    steps:
+      - name: Validate destroy confirmation
+        if: ${{ inputs.action == 'destroy' && inputs.confirmation != 'DESTROY' }}
+        run: |
+          echo "Destroy requires confirmation DESTROY"
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.0"
+
+      - name: Initialize remote Terraform state
+        env:
+          STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          test -n "$STATE_BUCKET" || { echo "Set TF_STATE_BUCKET repository variable"; exit 1; }
+          terraform init -input=false \
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="key=cloudops/eks-lab/dev/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+
+      - name: Format and validate
+        run: |
+          terraform fmt -check
+          terraform validate
+
+      - name: Terraform plan
+        if: ${{ inputs.action == 'plan' }}
+        run: terraform plan -input=false -no-color
+
+      - name: Terraform apply
+        if: ${{ inputs.action == 'apply' }}
+        run: |
+          terraform plan -input=false -out=tfplan
+          terraform apply -input=false -auto-approve tfplan
+
+      - name: Terraform destroy
+        if: ${{ inputs.action == 'destroy' }}
+        run: |
+          terraform plan -destroy -input=false -out=tfplan
+          terraform apply -input=false -auto-approve tfplan
