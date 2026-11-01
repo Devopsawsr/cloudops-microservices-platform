@@ -41,3 +41,23 @@ resource "aws_eks_access_policy_association" "lab_operator" {
     type = "cluster"
   }
 }
+
+
+# Persistent access for the local AWS CLI profile "eks-lab-user".
+# This IAM user exists independently of the EKS cluster, while its EKS
+# access entry will be created on apply and removed on destroy.
+resource "aws_eks_access_entry" "local_cli_user" {
+  cluster_name  = aws_eks_cluster.lab.name
+  principal_arn = "arn:aws:iam::981625497990:user/eks-lab-user"
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "local_cli_user" {
+  cluster_name  = aws_eks_cluster.lab.name
+  principal_arn = aws_eks_access_entry.local_cli_user.principal_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+}
