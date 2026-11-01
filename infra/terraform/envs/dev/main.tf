@@ -14,6 +14,18 @@ data "aws_subnets" "public" {
     name   = "map-public-ip-on-launch"
     values = ["true"]
   }
+
+  # us-east-1e does not support EKS control plane placement.
+  # AWS's error lists the eligible zones for this region/account.
+  filter {
+    name   = "availability-zone"
+    values = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"]
+  }
+}
+
+data "aws_subnet" "selected" {
+  for_each = toset(data.aws_subnets.public.ids)
+  id       = each.value
 }
 
 data "aws_iam_policy_document" "cluster_assume" {
@@ -93,7 +105,7 @@ resource "aws_eks_cluster" "lab" {
 
   lifecycle {
     precondition {
-      condition     = length(data.aws_subnets.public.ids) >= 2
+      condition     = length(distinct([for subnet in data.aws_subnet.selected : subnet.availability_zone])) >= 2
       error_message = "At least two public subnets in different AZs are required. Check the default VPC."
     }
   }
