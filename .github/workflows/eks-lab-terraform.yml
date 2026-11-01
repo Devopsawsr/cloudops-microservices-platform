@@ -27,6 +27,7 @@ concurrency:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    environment: aws-dev
     defaults:
       run:
         working-directory: infra/terraform/envs/dev
