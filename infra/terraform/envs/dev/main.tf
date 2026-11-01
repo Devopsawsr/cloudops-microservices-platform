@@ -45,14 +45,10 @@ locals {
   ]
 }
 
-# These two roles already exist in AWS and are NOT created/deleted by Terraform.
-# Verify their trust policies and attached EKS policies before applying.
+# Reuse the existing EKS control-plane role. The worker role is separate,
+# created in node-iam.tf and managed by Terraform.
 data "aws_iam_role" "cluster" {
   name = "EKS-Cluster"
-}
-
-data "aws_iam_role" "node" {
-  name = "Role-all-service"
 }
 
 resource "aws_eks_cluster" "lab" {
@@ -87,7 +83,7 @@ resource "aws_eks_cluster" "lab" {
 resource "aws_eks_node_group" "lab" {
   cluster_name    = aws_eks_cluster.lab.name
   node_group_name = var.node_group_name
-  node_role_arn   = data.aws_iam_role.node.arn
+  node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = local.eks_subnet_ids
 
   instance_types = [var.node_instance_type]
@@ -104,4 +100,9 @@ resource "aws_eks_node_group" "lab" {
     max_unavailable = 1
   }
 
+  depends_on = [
+    aws_iam_role_policy_attachment.worker,
+    aws_iam_role_policy_attachment.ecr,
+    aws_iam_role_policy_attachment.cni,
+  ]
 }
