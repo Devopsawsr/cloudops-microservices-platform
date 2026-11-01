@@ -45,61 +45,19 @@ locals {
   ]
 }
 
-data "aws_iam_policy_document" "cluster_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["eks.amazonaws.com"]
-    }
-  }
+# These two roles already exist in AWS and are NOT created/deleted by Terraform.
+# Verify their trust policies and attached EKS policies before applying.
+data "aws_iam_role" "cluster" {
+  name = "EKS-Cluster"
 }
 
-resource "aws_iam_role" "cluster" {
-  name               = "${var.cluster_name}-cluster-role"
-  assume_role_policy = data.aws_iam_policy_document.cluster_assume.json
-}
-
-resource "aws_iam_role_policy_attachment" "cluster" {
-  role       = aws_iam_role.cluster.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-}
-
-data "aws_iam_policy_document" "node_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "node" {
-  name               = "${var.cluster_name}-node-role"
-  assume_role_policy = data.aws_iam_policy_document.node_assume.json
-}
-
-resource "aws_iam_role_policy_attachment" "worker" {
-  role       = aws_iam_role.node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "ecr" {
-  role       = aws_iam_role.node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
-}
-
-# Simplified learning lab: CNI permissions on the node role.
-# Production: use a separate IAM role for the VPC CNI add-on.
-resource "aws_iam_role_policy_attachment" "cni" {
-  role       = aws_iam_role.node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+data "aws_iam_role" "node" {
+  name = "Role-all-service"
 }
 
 resource "aws_eks_cluster" "lab" {
   name     = var.cluster_name
-  role_arn = aws_iam_role.cluster.arn
+  role_arn = data.aws_iam_role.cluster.arn
   version  = var.kubernetes_version
 
   # EKS Auto Mode is explicitly OFF; nodes use the managed node group below.
@@ -118,8 +76,6 @@ resource "aws_eks_cluster" "lab" {
     endpoint_private_access = false
   }
 
-  depends_on = [aws_iam_role_policy_attachment.cluster]
-
   lifecycle {
     precondition {
       condition     = alltrue([for id in local.eks_subnet_ids : id != null])
@@ -131,7 +87,7 @@ resource "aws_eks_cluster" "lab" {
 resource "aws_eks_node_group" "lab" {
   cluster_name    = aws_eks_cluster.lab.name
   node_group_name = var.node_group_name
-  node_role_arn   = aws_iam_role.node.arn
+  node_role_arn   = data.aws_iam_role.node.arn
   subnet_ids      = local.eks_subnet_ids
 
   instance_types = [var.node_instance_type]
@@ -148,9 +104,4 @@ resource "aws_eks_node_group" "lab" {
     max_unavailable = 1
   }
 
-  depends_on = [
-    aws_iam_role_policy_attachment.worker,
-    aws_iam_role_policy_attachment.ecr,
-    aws_iam_role_policy_attachment.cni,
-  ]
 }
