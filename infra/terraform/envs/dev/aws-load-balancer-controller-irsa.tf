@@ -1,7 +1,7 @@
 # IAM OIDC identity provider follows each newly-created EKS cluster issuer.
 # IRSA is scoped to the aws-load-balancer-controller Kubernetes ServiceAccount.
 locals {
-  lbc_oidc_issuer = aws_eks_cluster.lab.identity[0].oidc[0].issuer
+  lbc_oidc_issuer   = aws_eks_cluster.lab.identity[0].oidc[0].issuer
   lbc_oidc_hostpath = trimprefix(local.lbc_oidc_issuer, "https://")
 }
 
