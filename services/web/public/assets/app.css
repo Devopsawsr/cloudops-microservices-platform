@@ -509,3 +509,55 @@ footer { background: #1b1518; color: #d8ccd3; padding: 48px 0; }
   .platform-grid { grid-template-columns: 1fr; }
   .platform-flow b { transform: rotate(90deg); }
 }
+
+/* Academy homepage refresh — scoped components preserve existing pages and shop behavior. */
+.academy-hero{background:radial-gradient(circle at 82% 18%,#e1ebff 0,transparent 34%),linear-gradient(130deg,#f8fbff,#edf5ff 55%,#f6f1ff);padding:80px 0 88px}
+.academy-hero-grid{display:grid;grid-template-columns:1.13fr .87fr;align-items:center;gap:64px}
+.academy-eyebrow{display:inline-block;color:#315fd0;font-size:12px;font-weight:800;letter-spacing:.16em}
+.academy-hero h1{font:800 clamp(42px,5.3vw,72px)/1.06 Inter,Arial,sans-serif;letter-spacing:-.055em;margin:18px 0 22px;color:#101b33}
+.academy-hero h1 em{font-style:normal;color:#3e63dc}
+.academy-lead{max-width:580px;font-size:18px;line-height:1.75;color:#536176}
+.academy-hero-actions{display:flex;flex-wrap:wrap;align-items:center;gap:13px;margin-top:30px}
+.academy-cta,.academy-secondary{display:inline-flex;align-items:center;justify-content:center;gap:16px;border-radius:12px;padding:15px 22px;font-size:14px;font-weight:800;transition:transform .2s,box-shadow .2s}
+.academy-cta{background:#315cdd;color:#fff;box-shadow:0 14px 26px rgba(49,92,221,.2)}
+.academy-secondary{border:1px solid #cfdaee;background:#fff;color:#24344d}
+.academy-cta:hover,.academy-secondary:hover{transform:translateY(-2px)}
+.academy-trust{display:flex;gap:18px;flex-wrap:wrap;margin-top:27px;color:#526176;font-size:13px;font-weight:700}
+.academy-showcase{position:relative;overflow:hidden;border-radius:26px;background:linear-gradient(145deg,#172856,#1b2250 54%,#473887);padding:28px 30px;color:#fff;box-shadow:0 28px 70px rgba(34,49,100,.24)}
+.academy-showcase:after{content:"";position:absolute;width:230px;height:230px;border:45px solid rgba(255,255,255,.04);border-radius:50%;top:40px;right:-145px;pointer-events:none}
+.academy-showcase-top{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:800;letter-spacing:.12em;color:#c8d7ff}
+.academy-live-dot{width:8px;height:8px;background:#77e3bc;border-radius:50%}
+.academy-pill{margin-left:auto;border:1px solid #657cb4;border-radius:99px;padding:5px 9px;letter-spacing:0}
+.academy-feature-icon{display:grid;place-items:center;width:74px;height:74px;margin-top:42px;border-radius:22px;background:linear-gradient(130deg,#60a5fa,#a78bfa);font-size:44px}
+.academy-feature-kicker{margin:24px 0 8px;color:#b4c7ff;font-size:11px;font-weight:800;letter-spacing:.14em}
+.academy-showcase h2{font:800 clamp(28px,3vw,40px)/1.12 Inter,Arial,sans-serif;letter-spacing:-.04em;margin:0 0 12px}
+.academy-showcase p{color:#d1d9f1;line-height:1.65;font-size:14px;max-width:380px}
+.academy-track,.academy-tags{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+.academy-track span{border:1px solid #536ba2;background:#ffffff13;border-radius:99px;padding:8px 11px;font-size:11px;font-weight:700}
+.academy-showcase-link{border-top:1px solid #ffffff30;display:flex;justify-content:space-between;padding-top:18px;margin-top:25px;font-weight:800;font-size:13px}
+.academy-programs{padding:84px 0 75px;background:#fff}
+.academy-section-heading{display:flex;align-items:end;justify-content:space-between;gap:35px;margin-bottom:32px}
+.academy-section-heading h2,.academy-catalog-heading h2{font:800 clamp(31px,4vw,49px)/1.13 Inter,Arial,sans-serif;color:#17233c;margin:12px 0 0;letter-spacing:-.045em}
+.academy-section-heading h2 em,.academy-catalog-heading h2 em{font-style:normal;color:#4169dc}
+.academy-section-heading>p{max-width:390px;color:#687589;line-height:1.7;font-size:15px}
+.academy-program-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.academy-program-card{display:flex;flex-direction:column;align-items:start;border:1px solid #e4eaf4;border-radius:23px;padding:26px;min-height:335px;box-shadow:0 12px 30px rgba(29,49,90,.05)}
+.academy-program-cloud{background:#f2f7ff}.academy-program-devops{background:#f2fbf8}.academy-program-ai{background:#f8f4ff}
+.academy-program-symbol{display:grid;place-items:center;width:57px;height:57px;border-radius:17px;background:#fff;box-shadow:0 7px 16px #132f5715;font-size:29px;color:#3764d9;margin-bottom:26px}
+.academy-program-type{font-size:10px;letter-spacing:.12em;color:#63718c;font-weight:800}
+.academy-program-card h3{font:800 26px/1.15 Inter,Arial,sans-serif;letter-spacing:-.035em;margin:11px 0}
+.academy-program-card p{color:#5d697c;line-height:1.65;font-size:14px;margin:0}
+.academy-tags{margin-top:auto;padding-top:18px}
+.academy-tags span{font-size:11px;font-weight:700;border-radius:6px;padding:6px 8px;background:#fff;border:1px solid #e1e8f4;color:#445773}
+.academy-program-card>a{display:flex;justify-content:space-between;width:100%;border-top:1px solid #dce3ed;padding-top:15px;font-size:13px;font-weight:800;color:#315cdd}
+.academy-benefits{background:#142348;color:#fff;padding:35px 0}
+.academy-benefit-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px}
+.academy-benefit-grid>div{border-right:1px solid #ffffff25;padding-right:20px}
+.academy-benefit-grid>div:last-child{border:0}
+.academy-benefit-grid strong{color:#83b2ff;font-size:12px}
+.academy-benefit-grid h3{font-size:16px;margin:9px 0}
+.academy-benefit-grid p{font-size:12px;line-height:1.65;color:#c5d2ed}
+.academy-catalog-heading{text-align:center;padding:68px 0 25px}
+.academy-catalog-heading p{color:#687589}
+@media(max-width:950px){.academy-hero-grid{grid-template-columns:1fr;gap:30px}.academy-showcase{max-width:610px}.academy-benefit-grid{grid-template-columns:repeat(2,1fr)}.academy-program-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.academy-hero{padding:48px 0}.academy-hero h1{font-size:44px}.academy-hero-grid{gap:22px}.academy-section-heading{display:block}.academy-program-grid,.academy-benefit-grid{grid-template-columns:1fr}.academy-benefit-grid>div{border:0;border-bottom:1px solid #ffffff25;padding:0 0 16px}.academy-program-card{min-height:300px}.academy-programs{padding:55px 0}.academy-showcase{padding:22px}.academy-trust{gap:10px}}
