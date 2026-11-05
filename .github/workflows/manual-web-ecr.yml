@@ -1,0 +1,135 @@
+name: Build and publish Web image to ECR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: web-ecr-publish
+  cancel-in-progress: false
+
+jobs:
+  web-image:
+    name: Build, smoke test, scan and publish Web
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    timeout-minutes: 30
+
+    env:
+      AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: "981625497990"
+      ECR_REPOSITORY: reddy/buddu-ebooks-web
+      LOCAL_IMAGE: cloudops-web-ci:${{ github.sha }}
+
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@v4
+
+      - name: Build real Web container
+        run: |
+          set -euo pipefail
+          docker build \
+            --file services/web/Dockerfile \
+            --tag "$LOCAL_IMAGE" \
+            .
+
+      - name: Smoke test Web container locally
+        run: |
+          set -euo pipefail
+          container_id="$(docker run --detach --publish 127.0.0.1:18080:80 "$LOCAL_IMAGE")"
+          trap 'docker rm --force "$container_id" >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18080/ > /tmp/web-home.html; then
+              break
+            fi
+            sleep 1
+          done
+          test -s /tmp/web-home.html
+          grep -q 'Cloud and DevOps' /tmp/web-home.html
+          curl --fail --silent --show-error --head http://127.0.0.1:18080/
+
+      - name: Trivy vulnerability scan (fail on HIGH or CRITICAL)
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.LOCAL_IMAGE }}
+          format: table
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Check publisher role is configured
+        env:
+          ROLE_ARN: ${{ secrets.AWS_ECR_PUBLISH_ROLE_ARN }}
+        run: |
+          if [[ -z "$ROLE_ARN" ]]; then
+            echo "Missing aws-dev environment secret AWS_ECR_PUBLISH_ROLE_ARN"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ECR_PUBLISH_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: github-web-ecr-publish
+
+      - name: Verify AWS account and existing ECR repository
+        run: |
+          set -euo pipefail
+          current_account="$(aws sts get-caller-identity --query Account --output text)"
+          if [[ "$current_account" != "$AWS_ACCOUNT_ID" ]]; then
+            echo "Refusing publish to unexpected AWS account: $current_account"
+            exit 1
+          fi
+          aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --region "$AWS_REGION" >/dev/null
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push versioned Web image to dedicated ECR repository
+        id: publish
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          set -euo pipefail
+          if [[ "$ECR_REGISTRY" != "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com" ]]; then
+            echo "Unexpected ECR registry: $ECR_REGISTRY"
+            exit 1
+          fi
+          IMAGE_TAG="web-${GITHUB_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+          docker tag "$LOCAL_IMAGE" "$IMAGE_URI"
+          docker push "$IMAGE_URI"
+
+          DIGEST="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$IMAGE_TAG" \
+            --region "$AWS_REGION" \
+            --query 'imageDetails[0].imageDigest' --output text)"
+
+          if [[ "$DIGEST" != sha256:* ]]; then
+            echo "Could not verify image digest in ECR"
+            exit 1
+          fi
+
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "image_digest_uri=$ECR_REGISTRY/$ECR_REPOSITORY@$DIGEST" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Published Web image"
+            echo ""
+            echo "- Source commit: \`$GITHUB_SHA\`"
+            echo "- Image tag: \`$IMAGE_URI\`"
+            echo "- Immutable image reference: \`$ECR_REGISTRY/$ECR_REPOSITORY@$DIGEST\`"
+            echo ""
+            echo "Image publishing only. No EKS deployment was performed."
+          } >> "$GITHUB_STEP_SUMMARY"
