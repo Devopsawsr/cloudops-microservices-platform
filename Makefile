@@ -1,7 +1,7 @@
 SERVICES := gateway web auth catalog cart orders learning labs community certificates leaderboard
 K8S_OVERLAYS := dev qa staging production
 
-.PHONY: validate validate-k8s compose-up compose-down bootstrap-dev deploy-dev status port-forward smoke
+.PHONY: validate validate-k8s compose-up compose-down bootstrap-dev deploy-web-dev deploy-dev status port-forward smoke
 
 # Local checks: no AWS infrastructure or application deployment.
 validate:
@@ -14,6 +14,7 @@ validate-k8s:
 	  echo "Rendering Kubernetes $$env manifests"; \
 	  kubectl kustomize infra/k8s/overlays/$$env >/dev/null; \
 	done
+	@kubectl kustomize infra/k8s/overlays/dev/web >/dev/null
 
 compose-up:
 	docker compose up -d --build
@@ -25,6 +26,19 @@ compose-down:
 bootstrap-dev:
 	kubectl apply --dry-run=server -f infra/k8s/overlays/dev/namespace.yaml
 	kubectl apply -f infra/k8s/overlays/dev/namespace.yaml
+
+# Deploy only the real Web application after publishing its image.
+# Guard against deploying placeholder images or accidentally starting all services.
+deploy-web-dev:
+	@if [ "$(CONFIRM_DEPLOY_WEB)" != "YES" ]; then \
+	  echo "Refusing Web deployment. Use CONFIRM_DEPLOY_WEB=YES after image/capacity review."; exit 1; \
+	fi
+	@kubectl kustomize infra/k8s/overlays/dev/web > /tmp/cloudops-dev-web-rendered.yaml
+	@if grep -q 'REPLACE_ECR' /tmp/cloudops-dev-web-rendered.yaml; then \
+	  echo "Refusing Web deployment: publish real cloudops-web image to ECR and pin it first."; exit 1; \
+	fi
+	kubectl apply --dry-run=server -f /tmp/cloudops-dev-web-rendered.yaml
+	kubectl apply -k infra/k8s/overlays/dev/web
 
 # Explicit guard: prevents applying 11 workloads with placeholder ECR images.
 deploy-dev:
