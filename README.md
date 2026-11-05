@@ -150,18 +150,11 @@ The intended production-style build pipeline will:
 4. Builds all 11 images independently.
 5. Scans every image for high and critical vulnerabilities using Trivy.
 
-Publishing to ECR is separated from pull-request validation and will be enabled after the AWS account, ECR registry and GitHub OIDC role are configured.
+Publishing to ECR is not implemented yet; we will enable it after confirming the ECR registry, image policies, and scoped GitHub OIDC permissions.
 
-## Argo CD
+## Argo CD status and safety
 
-The Argo CD manifests use `https://github.com/Devopsawsr/cloudops-microservices-platform.git`. Change this URL if you select a different repository name, then apply:
-
-```bash
-kubectl apply -f infra/argocd/project.yaml
-kubectl apply -f infra/argocd/root-app.yaml
-```
-
-Development and QA use automated synchronization. Production requires a manual Argo CD sync.
+Argo CD application manifests are present under `infra/argocd/`, but deployment to EKS has **not been verified**. **Do not apply `infra/argocd/root-app.yaml` yet.** Its current applications target the in-cluster Kubernetes endpoint, which could deploy QA or Production resources into the Dev learning cluster. We will configure correctly scoped cluster destinations and approval policies before enabling GitOps.
 
 ## Environment strategy
 
