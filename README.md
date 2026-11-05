@@ -36,6 +36,19 @@ scripts/                   image publishing and smoke tests
 docs/                      architecture and operating notes
 ```
 
+## POC first: declarative, Git-managed namespace
+
+The current `buddu-ebooks` EKS lab is bootstrapped incrementally. **Do not apply the Dev overlay to the POC.** Begin with `infra/k8s/overlays/poc/`, which contains only the `cloudops-poc` Namespace and intentionally creates no Pods or LoadBalancers.
+
+```bash
+kubectl kustomize infra/k8s/overlays/poc
+kubectl apply --dry-run=server -k infra/k8s/overlays/poc
+kubectl apply -k infra/k8s/overlays/poc
+kubectl get ns cloudops-poc --show-labels
+```
+
+Read [POC bootstrap](infra/k8s/overlays/poc/README.md) and [implementation plan](docs/POC-IMPLEMENTATION-PLAN.md) for the next stages (images/ECR, capacity, internal services, ALB + HTTPS/DNS, monitoring and GitOps).
+
 ## Local validation
 
 Requirements: Docker with Compose v2, Python 3, kubectl and access to a Kubernetes cluster.
