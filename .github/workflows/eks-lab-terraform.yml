@@ -61,9 +61,56 @@ jobs:
       - name: Validate configuration
         run: terraform validate -no-color
 
-  reconcile:
-    name: "02 | Reconcile owned IAM state"
+  security:
+    name: "02 | TFLint and Checkov security gates"
     needs: validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: v0.59.1
+      - name: Run TFLint
+        env:
+          OPERATION: ${{ inputs.action }}
+        run: |
+          set -euo pipefail
+          tflint --init
+          if tflint --format compact; then
+            echo "TFLint passed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$OPERATION" == plan || "$OPERATION" == recover ]]; then
+            echo "::warning::TFLint findings require remediation before Apply/Destroy."
+            echo "TFLint reported findings; this Plan/Recover run is audit-only." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::TFLint is blocking $OPERATION until issues are fixed."
+            exit 1
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Checkov
+        run: python -m pip install --disable-pip-version-check checkov==3.4.3
+      - name: Run Checkov (audit on Plan, enforce on changes)
+        env:
+          OPERATION: ${{ inputs.action }}
+        run: |
+          set -euo pipefail
+          if checkov --directory . --framework terraform --quiet --compact; then
+            echo "Checkov passed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$OPERATION" == plan || "$OPERATION" == recover ]]; then
+            echo "::warning::Checkov security findings require remediation before Apply/Destroy."
+            echo "Checkov reported findings; this Plan/Recover run is audit-only." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Checkov is blocking $OPERATION until issues are fixed or documented, tightly scoped exceptions are reviewed."
+            exit 1
+          fi
+
+  reconcile:
+    name: "03 | Reconcile owned IAM state"
+    needs: [validate, security]
     if: ${{ inputs.action == 'recover' || inputs.action == 'apply' }}
     runs-on: ubuntu-latest
     environment: aws-dev
@@ -95,10 +142,10 @@ jobs:
         run: bash ../../../../scripts/reconcile-eks-iam.sh
 
   plan:
-    name: "03 | Plan infrastructure changes"
-    needs: [validate, reconcile]
+    name: "04 | Plan infrastructure changes"
+    needs: [validate, security, reconcile]
     # A skipped reconcile job is expected for plan-only, not an error.
-    if: ${{ !cancelled() && inputs.action != 'destroy' && needs.validate.result == 'success' && (needs.reconcile.result == 'success' || needs.reconcile.result == 'skipped') }}
+    if: ${{ !cancelled() && inputs.action != 'destroy' && needs.validate.result == 'success' && needs.security.result == 'success' && (needs.reconcile.result == 'success' || needs.reconcile.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment: aws-dev
     permissions:
@@ -141,9 +188,9 @@ jobs:
           if-no-files-found: error
 
   apply:
-    name: "04 | Apply saved Terraform plan"
-    needs: plan
-    if: ${{ inputs.action == 'apply' }}
+    name: "06 | Apply saved Terraform plan"
+    needs: [plan, approval]
+    if: ${{ inputs.action == 'apply' && needs.approval.result == 'success' }}
     runs-on: ubuntu-latest
     environment: aws-dev
     permissions:
@@ -179,8 +226,8 @@ jobs:
         run: terraform apply -input=false -lock-timeout=5m -auto-approve tfplan
 
   destroy_plan:
-    name: "03 | Plan infrastructure destruction"
-    needs: validate
+    name: "04 | Plan infrastructure destruction"
+    needs: [validate, security]
     if: ${{ inputs.action == 'destroy' }}
     runs-on: ubuntu-latest
     environment: aws-dev
@@ -222,9 +269,9 @@ jobs:
           if-no-files-found: error
 
   destroy:
-    name: "04 | Destroy using saved plan"
-    needs: destroy_plan
-    if: ${{ inputs.action == 'destroy' && inputs.confirmation == 'DESTROY' }}
+    name: "06 | Destroy using saved plan"
+    needs: [destroy_plan, approval]
+    if: ${{ inputs.action == 'destroy' && inputs.confirmation == 'DESTROY' && needs.approval.result == 'success' }}
     runs-on: ubuntu-latest
     environment: aws-dev
     permissions:
@@ -259,9 +306,69 @@ jobs:
       - name: Destroy using exactly the saved plan
         run: terraform apply -input=false -lock-timeout=5m -auto-approve tfplan
 
+  approval:
+    name: "05 | Human approval for Apply/Destroy"
+    needs: [plan, destroy_plan]
+    if: ${{ !cancelled() && ((inputs.action == 'apply' && needs.plan.result == 'success') || (inputs.action == 'destroy' && needs.destroy_plan.result == 'success')) }}
+    runs-on: ubuntu-latest
+    # Set REQUIRED REVIEWERS in Settings > Environments > terraform-change-approval.
+    # GitHub environment alone does not enforce review until protection is configured.
+    environment: terraform-change-approval
+    steps:
+      - name: Fail closed until GitHub environment protection is configured
+        env:
+          GATE_CONFIGURED: ${{ vars.TF_APPROVAL_GATE_CONFIGURED }}
+        run: |
+          set -euo pipefail
+          if [[ "$GATE_CONFIGURED" != "true" ]]; then
+            echo "::error::Configure terraform-change-approval Required reviewers and set repository variable TF_APPROVAL_GATE_CONFIGURED=true only after verifying protection. No Apply/Destroy is allowed until then."
+            exit 1
+          fi
+          echo "Approval gate was acknowledged by the protected GitHub environment."
+
+  verify_apply:
+    name: "07 | Verify EKS and nodegroup health"
+    needs: apply
+    if: ${{ inputs.action == 'apply' }}
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Initialize state
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=reddy-buddu" \
+            -backend-config="key=cloudops/eks-lab/dev/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+      - name: Verify Terraform outputs and running EKS resources
+        run: |
+          set -euo pipefail
+          CLUSTER="$(terraform output -raw cluster_name)"
+          NODEGROUP="$(terraform output -raw node_group_name)"
+          STATUS="$(aws eks describe-cluster --name "$CLUSTER" --region "$AWS_REGION" --query 'cluster.status' --output text)"
+          NG_STATUS="$(aws eks describe-nodegroup --cluster-name "$CLUSTER" --nodegroup-name "$NODEGROUP" --region "$AWS_REGION" --query 'nodegroup.status' --output text)"
+          printf "Cluster: %s (%s)\nNodegroup: %s (%s)\n" "$CLUSTER" "$STATUS" "$NODEGROUP" "$NG_STATUS" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$STATUS" == ACTIVE && "$NG_STATUS" == ACTIVE ]] || { echo "::error::EKS or its managed node group is not ACTIVE"; exit 1; }
+
   summary:
-    name: "05 | Execution summary and troubleshooting"
-    needs: [validate, reconcile, plan, apply, destroy_plan, destroy]
+    name: "08 | Execution summary and troubleshooting"
+    needs: [validate, security, reconcile, plan, approval, apply, verify_apply, destroy_plan, destroy]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -269,6 +376,9 @@ jobs:
         env:
           OPERATION: ${{ inputs.action }}
           VALIDATE: ${{ needs.validate.result }}
+          SECURITY: ${{ needs.security.result }}
+          APPROVAL: ${{ needs.approval.result }}
+          VERIFY: ${{ needs.verify_apply.result }}
           RECONCILE: ${{ needs.reconcile.result }}
           PLAN: ${{ needs.plan.result }}
           APPLY: ${{ needs.apply.result }}
@@ -281,6 +391,9 @@ jobs:
             echo "| Stage | Result |"
             echo "|---|---|"
             echo "| Validation | $VALIDATE |"
+            echo "| TFLint / Checkov | $SECURITY |"
+            echo "| Human approval | $APPROVAL |"
+            echo "| EKS post-apply verification | $VERIFY |"
             echo "| IAM recovery (recover/apply only) | $RECONCILE |"
             echo "| Change plan | $PLAN |"
             echo "| Apply | $APPLY |"
@@ -302,11 +415,11 @@ jobs:
           DESTROY: ${{ needs.destroy.result }}
         run: |
           set -euo pipefail
-          [[ "$VALIDATE" == success ]] || exit 1
+          [[ "$VALIDATE" == success && "$SECURITY" == success ]] || exit 1
           case "$OPERATION" in
             plan) [[ "$PLAN" == success ]] ;;
             recover) [[ "$RECONCILE" == success && "$PLAN" == success ]] ;;
-            apply) [[ "$RECONCILE" == success && "$PLAN" == success && "$APPLY" == success ]] ;;
-            destroy) [[ "$DESTROY_PLAN" == success && "$DESTROY" == success ]] ;;
+            apply) [[ "$RECONCILE" == success && "$PLAN" == success && "$APPROVAL" == success && "$APPLY" == success && "$VERIFY" == success ]] ;;
+            destroy) [[ "$DESTROY_PLAN" == success && "$APPROVAL" == success && "$DESTROY" == success ]] ;;
             *) exit 1 ;;
           esac
