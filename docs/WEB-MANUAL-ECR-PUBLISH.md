@@ -26,15 +26,29 @@ This is the **first service-specific image publishing workflow**. It runs only w
 
 In GitHub: **Actions → Build and publish Web image to ECR → Run workflow → Branch: main → Run workflow**.
 
-The job does the following:
+## Visible GitHub Actions job graph
 
-1. Checks out the source commit.
-2. Builds the real Web image using `services/web/Dockerfile` and repository-root build context.
-3. Starts the image locally and verifies that HTTP `/` responds and contains expected website text.
-4. Scans HIGH/CRITICAL fixed vulnerabilities with Trivy and blocks publishing on findings.
-5. Assumes the dedicated OIDC publishing role, verifies AWS account and repository, logs into ECR.
-6. Publishes a uniquely tagged Web image and verifies the digest in ECR.
-7. Writes the tag and immutable `repository@sha256:...` image reference to the workflow summary.
+GitHub Actions renders **five separate dependent jobs**, so each appears as its own stage in the workflow visualization:
+
+```text
+01 | Validate source and Dockerfile
+               |
+02 | Build and smoke-test Web image
+               |
+03 | Security scan (Trivy)
+               |
+04 | Publish approved image to ECR
+               |
+05 | Verify published ECR digest
+```
+
+Jobs use `needs:` dependencies. If a stage fails, downstream stages do not run.
+
+Each GitHub-hosted job starts with a fresh runner. The build stage therefore saves its **tested Docker image** as a one-day GitHub Actions artifact; the scan and publish stages download and load that *same image*, rather than rebuilding it. Publishing is gated on the Trivy result. Only the publishing and verification jobs request AWS OIDC access using the `aws-dev` environment.
+
+Open **Actions → Build and publish Web image to ECR → the selected run → Summary** to view the separate job graph. Click an individual job to inspect its step-level logs.
+
+Changes to a workflow file apply to **new workflow runs**; already-started runs retain their original job graph.
 
 ## Next step
 
