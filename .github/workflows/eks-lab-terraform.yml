@@ -39,6 +39,9 @@ jobs:
       run:
         working-directory: infra/terraform/envs/dev
     steps:
+      # Checkout must precede shell commands because the default working directory
+      # is a path inside the repository and does not exist on a fresh runner.
+      - uses: actions/checkout@v4
       - name: Require explicit destroy confirmation
         env:
           OPERATION: ${{ inputs.action }}
@@ -48,7 +51,6 @@ jobs:
             echo "::error::Destroy requires confirmation DESTROY"
             exit 1
           fi
-      - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
