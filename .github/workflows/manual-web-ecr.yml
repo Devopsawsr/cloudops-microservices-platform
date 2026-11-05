@@ -22,7 +22,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: "981625497990"
-      ECR_REPOSITORY: reddy/buddu-ebooks
+      ECR_REPOSITORY: reddy/buddu-ebooks-web
       LOCAL_IMAGE: cloudops-web-ci:${{ github.sha }}
 
     steps:
@@ -95,7 +95,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Push versioned Web image to existing ECR repository
+      - name: Push versioned Web image to dedicated ECR repository
         id: publish
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
