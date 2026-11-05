@@ -5,39 +5,42 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: web-ecr-publish
   cancel-in-progress: false
 
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: "981625497990"
+  ECR_REPOSITORY: reddy/buddu-ebooks-web
+  LOCAL_IMAGE: cloudops-web-ci:${{ github.sha }}
+
 jobs:
-  web-image:
-    name: Build, smoke test, scan and publish Web
+  validate:
+    name: "01 | Validate source and Dockerfile"
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    environment: aws-dev
-    timeout-minutes: 30
-
-    env:
-      AWS_REGION: us-east-1
-      AWS_ACCOUNT_ID: "981625497990"
-      ECR_REPOSITORY: reddy/buddu-ebooks-web
-      LOCAL_IMAGE: cloudops-web-ci:${{ github.sha }}
-
     steps:
-      - name: Checkout exact source commit
-        uses: actions/checkout@v4
-
-      - name: Build real Web container
+      - uses: actions/checkout@v4
+      - name: Verify Web build inputs
         run: |
           set -euo pipefail
-          docker build \
-            --file services/web/Dockerfile \
-            --tag "$LOCAL_IMAGE" \
-            .
+          test -f services/web/Dockerfile
+          test -f services/web/nginx.conf
+          test -s services/web/public/index.html
+          grep -q 'FROM ' services/web/Dockerfile
+          echo "Web Docker build inputs verified."
 
-      - name: Smoke test Web container locally
+  build:
+    name: "02 | Build and smoke-test Web image"
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build real Web image
+        run: docker build --file services/web/Dockerfile --tag "$LOCAL_IMAGE" .
+      - name: Run Web smoke test
         run: |
           set -euo pipefail
           container_id="$(docker run --detach --publish 127.0.0.1:18080:80 "$LOCAL_IMAGE")"
@@ -51,8 +54,30 @@ jobs:
           test -s /tmp/web-home.html
           grep -q 'Cloud and DevOps' /tmp/web-home.html
           curl --fail --silent --show-error --head http://127.0.0.1:18080/
+      - name: Save exactly tested image for subsequent jobs
+        run: docker save "$LOCAL_IMAGE" --output /tmp/web-image.tar
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/web-image.tar
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
 
-      - name: Trivy vulnerability scan (fail on HIGH or CRITICAL)
+  scan:
+    name: "03 | Security scan (Trivy)"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tested image
+        uses: actions/download-artifact@v4
+        with:
+          name: web-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp
+      - name: Load tested image
+        run: docker load --input /tmp/web-image.tar
+      - name: Scan for fixable HIGH/CRITICAL vulnerabilities
         uses: aquasecurity/trivy-action@0.36.0
         with:
           scan-type: image
@@ -63,73 +88,95 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
-      - name: Check publisher role is configured
+  publish:
+    name: "04 | Publish approved image to ECR"
+    needs: scan
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image_tag: ${{ steps.push.outputs.image_tag }}
+      image_uri: ${{ steps.push.outputs.image_uri }}
+    steps:
+      - name: Download scanned image
+        uses: actions/download-artifact@v4
+        with:
+          name: web-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp
+      - name: Load scanned image
+        run: docker load --input /tmp/web-image.tar
+      - name: Check publishing role
         env:
           ROLE_ARN: ${{ secrets.AWS_ECR_PUBLISH_ROLE_ARN }}
         run: |
           if [[ -z "$ROLE_ARN" ]]; then
-            echo "Missing aws-dev environment secret AWS_ECR_PUBLISH_ROLE_ARN"
+            echo "Missing aws-dev secret AWS_ECR_PUBLISH_ROLE_ARN"
             exit 1
           fi
-
-      - name: Configure AWS credentials via OIDC
+      - name: Authenticate to AWS using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ECR_PUBLISH_ROLE_ARN }}
           aws-region: us-east-1
           role-session-name: github-web-ecr-publish
-
-      - name: Verify AWS account and existing ECR repository
+      - name: Verify account and repository
         run: |
           set -euo pipefail
-          current_account="$(aws sts get-caller-identity --query Account --output text)"
-          if [[ "$current_account" != "$AWS_ACCOUNT_ID" ]]; then
-            echo "Refusing publish to unexpected AWS account: $current_account"
-            exit 1
-          fi
-          aws ecr describe-repositories \
-            --repository-names "$ECR_REPOSITORY" \
-            --region "$AWS_REGION" >/dev/null
-
-      - name: Log in to Amazon ECR
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$AWS_ACCOUNT_ID"
+          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" --region "$AWS_REGION" >/dev/null
+      - name: Log in to ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Push versioned Web image to dedicated ECR repository
-        id: publish
+      - name: Push Web image
+        id: push
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           set -euo pipefail
-          if [[ "$ECR_REGISTRY" != "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com" ]]; then
-            echo "Unexpected ECR registry: $ECR_REGISTRY"
-            exit 1
-          fi
+          test "$ECR_REGISTRY" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
           IMAGE_TAG="web-${GITHUB_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
           docker tag "$LOCAL_IMAGE" "$IMAGE_URI"
           docker push "$IMAGE_URI"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
 
+  verify:
+    name: "05 | Verify published ECR digest"
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Authenticate to AWS using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ECR_PUBLISH_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: github-web-ecr-verify
+      - name: Verify image digest and report release artifact
+        env:
+          IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+          IMAGE_URI: ${{ needs.publish.outputs.image_uri }}
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$AWS_ACCOUNT_ID"
           DIGEST="$(aws ecr describe-images \
             --repository-name "$ECR_REPOSITORY" \
             --image-ids imageTag="$IMAGE_TAG" \
             --region "$AWS_REGION" \
             --query 'imageDetails[0].imageDigest' --output text)"
-
-          if [[ "$DIGEST" != sha256:* ]]; then
-            echo "Could not verify image digest in ECR"
-            exit 1
-          fi
-
-          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
-          echo "image_digest_uri=$ECR_REGISTRY/$ECR_REPOSITORY@$DIGEST" >> "$GITHUB_OUTPUT"
+          [[ "$DIGEST" == sha256:* ]] || { echo "ECR digest missing"; exit 1; }
           {
             echo "## Published Web image"
             echo ""
             echo "- Source commit: \`$GITHUB_SHA\`"
             echo "- Image tag: \`$IMAGE_URI\`"
-            echo "- Immutable image reference: \`$ECR_REGISTRY/$ECR_REPOSITORY@$DIGEST\`"
+            echo "- Immutable image: \`$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY@$DIGEST\`"
             echo ""
-            echo "Image publishing only. No EKS deployment was performed."
+            echo "No Kubernetes deployment was performed."
           } >> "$GITHUB_STEP_SUMMARY"
