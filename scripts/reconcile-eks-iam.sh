@@ -13,7 +13,11 @@ verify_tags() {
 role() {
   local addr="$1" name="$2" tags
   if tracked "$addr"; then echo "Tracked: $addr"; return; fi
-  if ! aws iam get-role --role-name "$name" >/dev/null 2>&1; then echo "Absent: $name"; return; fi
+  local result
+  if ! result="$(aws iam get-role --role-name "$name" 2>&1)"; then
+    if [[ "$result" == *NoSuchEntity* ]]; then echo "Absent: $name"; return; fi
+    echo "::error::IAM role lookup failed: $result"; exit 1
+  fi
   tags="$(aws iam list-role-tags --role-name "$name" --query Tags --output json)"
   verify_tags "$tags"
   terraform import -input=false -lock-timeout=5m "$addr" "$name"
@@ -22,7 +26,11 @@ policy() {
   local addr="$1" name="$2" arn tags
   arn="arn:aws:iam::${ACCOUNT_ID}:policy/${name}"
   if tracked "$addr"; then echo "Tracked: $addr"; return; fi
-  if ! aws iam get-policy --policy-arn "$arn" >/dev/null 2>&1; then echo "Absent: $arn"; return; fi
+  local result
+  if ! result="$(aws iam get-policy --policy-arn "$arn" 2>&1)"; then
+    if [[ "$result" == *NoSuchEntity* ]]; then echo "Absent: $arn"; return; fi
+    echo "::error::IAM policy lookup failed: $result"; exit 1
+  fi
   tags="$(aws iam list-policy-tags --policy-arn "$arn" --query Tags --output json)"
   verify_tags "$tags"
   terraform import -input=false -lock-timeout=5m "$addr" "$arn"

@@ -84,6 +84,11 @@ jobs:
         if: ${{ inputs.action == 'plan' }}
         run: terraform plan -input=false -no-color -lock-timeout=5m
 
+      # Recover IAM objects from interrupted applies, only when ownership tags match.
+      - name: Reconcile existing POC IAM before apply
+        if: ${{ inputs.action == 'apply' }}
+        run: bash ../../../../scripts/reconcile-eks-iam.sh
+
       - name: Terraform apply
         if: ${{ inputs.action == 'apply' }}
         run: |
