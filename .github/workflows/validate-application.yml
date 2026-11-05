@@ -1,0 +1,54 @@
+name: Validate application and Kubernetes manifests
+
+on:
+  pull_request:
+    paths:
+      - "services/**"
+      - "packages/**"
+      - "infra/k8s/**"
+      - "Makefile"
+      - ".github/workflows/validate-application.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+      - "packages/**"
+      - "infra/k8s/**"
+      - "Makefile"
+      - ".github/workflows/validate-application.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout application source
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.34.0
+
+      - name: Compile Python application modules
+        run: python3 -m compileall -q packages services
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Render Kubernetes environments
+        run: make validate-k8s
+
+      - name: Check manifests for unresolved placeholder images
+        run: |
+          set -euo pipefail
+          echo "## Deployment readiness" >> "$GITHUB_STEP_SUMMARY"
+          for env in dev qa staging production; do
+            if kubectl kustomize "infra/k8s/overlays/$env" | grep -q 'REPLACE_ECR'; then
+              echo "- $env: templates render, but images are not published yet (deployment blocked)." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- $env: no ECR placeholders detected." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
