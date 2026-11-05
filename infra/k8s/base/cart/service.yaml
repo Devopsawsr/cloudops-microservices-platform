@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart
+  labels:
+    app.kubernetes.io/name: cart
+    app.kubernetes.io/part-of: cloudops
+spec:
+  selector:
+    app: cart
+  ports:
+    - port: 8080
+      targetPort: 8080

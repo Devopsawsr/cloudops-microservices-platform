@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: learning
+  labels:
+    app.kubernetes.io/name: learning
+    app.kubernetes.io/part-of: cloudops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: learning
+  template:
+    metadata:
+      labels:
+        app: learning
+        app.kubernetes.io/name: learning
+        app.kubernetes.io/part-of: cloudops
+    spec:
+      serviceAccountName: cloudops
+      containers:
+        - name: learning
+          image: cloudops/learning:0.1
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          envFrom:
+            - configMapRef:
+                name: cloudops-config
+            - secretRef:
+                name: cloudops-db
+                optional: true
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+          env:
+            - name: DATA_DIR
+              value: "/data"
+            - name: CERTIFICATES_URL
+              value: "http://certificates:8080"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}

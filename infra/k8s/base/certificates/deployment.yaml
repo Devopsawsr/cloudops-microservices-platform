@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: certificates
+  labels:
+    app.kubernetes.io/name: certificates
+    app.kubernetes.io/part-of: cloudops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: certificates
+  template:
+    metadata:
+      labels:
+        app: certificates
+        app.kubernetes.io/name: certificates
+        app.kubernetes.io/part-of: cloudops
+    spec:
+      serviceAccountName: cloudops
+      containers:
+        - name: certificates
+          image: cloudops/certificates:0.1
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          envFrom:
+            - configMapRef:
+                name: cloudops-config
+            - secretRef:
+                name: cloudops-db
+                optional: true
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+          env:
+            - name: DATA_DIR
+              value: "/data"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}

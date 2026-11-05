@@ -5,7 +5,7 @@ commonLabels:
   env: dev
 resources:
   - namespace.yaml
-  - configmap.yaml
+  - common
   - ../../base
 patchesStrategicMerge:
   - gateway-lb.yaml

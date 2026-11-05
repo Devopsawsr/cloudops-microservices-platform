@@ -27,7 +27,7 @@ Gateway (NGINX)
 ```text
 services/                  web, gateway and API microservices
 packages/common/           shared Python HTTP and storage helpers
-infra/k8s/base/            reusable Kubernetes resources
+infra/k8s/base/            independent gateway, Web and API service bases
 infra/k8s/overlays/        Dev, QA, Staging and Production Kustomize overlays
 infra/argocd/              Argo CD project and applications
 infra/terraform/           existing Dev EKS lab; future environment infrastructure
@@ -35,6 +35,21 @@ scripts/                   image publishing and smoke tests
 .github/workflows/         CI validation, builds and Trivy scans
 docs/                      architecture and operating notes
 ```
+
+## Independent Kubernetes service definitions
+
+Each of the 11 components now has a separate `infra/k8s/base/<service>/` directory with its own `deployment.yaml`, `service.yaml` and `kustomization.yaml`. `infra/k8s/base/kustomization.yaml` composes them for complete environment deployments. This replaces the previous bundled `workloads.yaml` and `gateway.yaml`.
+
+**Start with the real Web frontend only**, using `infra/k8s/overlays/dev/web/`. It includes the Web Deployment, its internal Service, shared ServiceAccount and Dev ConfigMap. This exercise requires publishing the real Web container image before apply. It does **not** deploy the gateway or APIs.
+
+```bash
+make validate-k8s
+kubectl kustomize infra/k8s/overlays/dev/web
+# Publish the real Web image to ECR and replace REPLACE_ECR first.
+make deploy-web-dev CONFIRM_DEPLOY_WEB=YES
+```
+
+See [Web-first Dev runbook](infra/k8s/overlays/dev/web/README.md). Until Web has been tested, do not use the full `deploy-dev` target. The full Dev/QA/Staging/Production overlays still contain image placeholders and are not release-ready.
 
 ## Dev first: declarative namespace bootstrap
 

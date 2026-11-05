@@ -1,6 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - serviceaccount.yaml
-  - workloads.yaml
-  - gateway.yaml
+  - common
+  - gateway
+  - web
+  - auth
+  - catalog
+  - cart
+  - orders
+  - learning
+  - labs
+  - community
+  - certificates
+  - leaderboard
