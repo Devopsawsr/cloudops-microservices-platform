@@ -31,8 +31,9 @@ deploy-dev:
 	@if [ "$(CONFIRM_DEPLOY_DEV)" != "YES" ]; then \
 	  echo "Refusing full Dev deployment. Set CONFIRM_DEPLOY_DEV=YES after review."; exit 1; \
 	fi
-	@kubectl kustomize infra/k8s/overlays/dev | grep -q 'REPLACE_ECR' && \
-	  { echo "Refusing: replace placeholder images with verified ECR digest references first."; exit 1; } || true
+	@if kubectl kustomize infra/k8s/overlays/dev | grep -q 'REPLACE_ECR'; then \
+	  echo "Refusing: replace placeholder images with verified ECR digest references first."; exit 1; \
+	fi
 	@kubectl apply -k infra/k8s/overlays/dev
 
 status:
