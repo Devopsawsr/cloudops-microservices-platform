@@ -5,7 +5,7 @@ variable "aws_region" {
 
 variable "cluster_name" {
   type    = string
-  default = "buddu-ebooks"
+  default = "reddy-ebooks"
 }
 
 variable "kubernetes_version" {
