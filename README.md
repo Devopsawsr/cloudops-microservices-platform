@@ -28,9 +28,9 @@ Gateway (NGINX)
 services/                  web, gateway and API microservices
 packages/common/           shared Python HTTP and storage helpers
 infra/k8s/base/            reusable Kubernetes resources
-infra/k8s/overlays/        Dev, QA and Production Kustomize overlays (Staging planned)
+infra/k8s/overlays/        Dev, QA, Staging and Production Kustomize overlays
 infra/argocd/              Argo CD project and applications
-infra/terraform/           planned EKS/ECR/RDS infrastructure
+infra/terraform/           existing Dev EKS lab; future environment infrastructure
 scripts/                   image publishing and smoke tests
 .github/workflows/         CI validation, builds and Trivy scans
 docs/                      architecture and operating notes
@@ -89,15 +89,15 @@ newName: docker.io/your-user/cloudops-gateway
 newTag: 0.1-dev
 ```
 
-## Deploy to kubeadm
+## Deploy to Kubernetes
 
-# Connect to EKS
-aws eks update-kubeconfig --name buddu-ebooks --region us-east-1 --profile eks-lab-user
+The full Dev deployment below is **not ready** until images and node capacity are reviewed. Start with `make bootstrap-dev` instead.
+
 ```bash
 kubectl get nodes
 kubectl kustomize infra/k8s/overlays/dev >/tmp/cloudops-dev.yaml
 kubectl apply --dry-run=server -f /tmp/cloudops-dev.yaml
-kubectl apply -k infra/k8s/overlays/dev
+make deploy-dev CONFIRM_DEPLOY_DEV=YES
 kubectl rollout status deployment/gateway -n cloudops-dev
 kubectl get all -n cloudops-dev
 ```
@@ -136,9 +136,13 @@ kubectl logs -n cloudops-dev deployment/gateway
 kubectl describe deployment gateway -n cloudops-dev
 ```
 
-## CI pipeline
+## CI and release status
 
-The GitHub Actions workflow:
+The repository currently has **two** separate workflows: `.github/workflows/eks-lab-terraform.yml` for the Terraform-managed Dev EKS cluster, and `.github/workflows/validate-application.yml` for pull-request validation of Python, Compose, and Kustomize overlays.
+
+**Publishing and promotion are not yet implemented.** The existing overlays still contain `REPLACE_ECR` and must not be applied to EKS until real images, credentials, resource capacity and Secrets have been prepared. A successful YAML render does not mean the application is release-ready.
+
+The intended production-style build pipeline will:
 
 1. Compiles all Python services.
 2. Validates Docker Compose.
@@ -165,14 +169,14 @@ Development and QA use automated synchronization. Production requires a manual A
 |---|---|---|---|
 | Development | `cloudops-dev` | `0.1-dev` | Automated |
 | QA | `cloudops-qa` | `0.1-qa` | Automated |
-| Staging (planned) | `cloudops-staging` | Promoted image digest | Approval gate |
+| Staging (config scaffold only) | `cloudops-staging` | Placeholder pending digest promotion | Approval gate |
 | Production | `cloudops-prod` | `0.1` | Manual approval |
 
 ## Current persistence scope
 
 The kubeadm demonstration uses pod-local `emptyDir` storage for stateful APIs. This is acceptable only for temporary testing: data is lost when a pod is replaced and must not be used with horizontally scaled stateful services.
 
-Before EKS production deployment, replace JSON-file storage with PostgreSQL/RDS, keep credentials in AWS Secrets Manager, and use IRSA workload identity.
+Before EKS production deployment, replace JSON-file storage with a durable data store (for example RDS), keep credentials in AWS Secrets Manager, and use EKS Pod Identity or IRSA as appropriate.
 
 ## EKS production roadmap
 
@@ -185,6 +189,8 @@ Before EKS production deployment, replace JSON-file storage with PostgreSQL/RDS,
 - NetworkPolicy, Pod Security and least-privilege IRSA
 - database backups, restore validation and disaster-recovery runbooks
 
-## HTTP deployment
+## Release promotion and HTTPS
 
-The lab endpoint uses HTTP because no domain or TLS certificate is configured. HTTPS will be introduced in EKS using Route 53, ACM and an Application Load Balancer.
+See [Environment and release workflow](docs/ENVIRONMENT-RELEASE-STRATEGY.md). Dev runs in the existing EKS learning cluster. QA, Staging and Production configuration files are **not proof of deployed infrastructure**. Images should be built and scanned once, then promoted by digest under review and environment-specific controls.
+
+HTTPS requires ALB Ingress, an ACM certificate and Route 53. Existing LoadBalancer Service patches should be replaced with the planned Ingress approach before deploying the full application.
