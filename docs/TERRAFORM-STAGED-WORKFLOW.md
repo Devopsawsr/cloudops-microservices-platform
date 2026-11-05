@@ -23,7 +23,7 @@ In **Actions → EKS Lab - Terraform → Run workflow**, choose:
 
 1. **01 Validate:** checkout, environment isolation, destroy confirmation, Terraform fmt/init/validate
 2. **02 TFLint and Checkov:** independent source quality/security checks (audit reporting for `plan` or `recover`, blocking for `apply` or `destroy`)
-3. **03 IAM reconciliation:** only `recover` and `apply`; safely imports only resources with verified ownership tags
+3. **03 IAM reconciliation:** only explicit `recover`; safely imports only resources with verified ownership tags, never before an Apply approval
 4. **04 Terraform Plan / Destroy Plan:** runs the requested plan against remote state; saves an exact plan artifact only for apply/destroy
 5. **05 Human approval:** only `apply` and `destroy`; requires a configured protected GitHub environment
 6. **06 Apply / Destroy:** mutually exclusive, uses a saved plan (no silent re-planning)
