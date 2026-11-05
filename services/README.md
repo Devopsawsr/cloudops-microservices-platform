@@ -14,4 +14,4 @@
 | certificates | API | `/api/certificates` |
 | leaderboard | API | `/api/leaderboard` |
 
-Each folder has its own `Dockerfile`. Images promote **dev → qa → production** (tags `0.1-dev`, `0.1-qa`, `0.1`).
+Each folder has its own `Dockerfile`. Our target release chain is **Dev → QA → Staging → Production**. Build a changed service once, test and scan it, then promote the same immutable image digest. Environment-dependent tags in current overlays are placeholders for future CI/CD, not evidence of existing artifact promotion.
