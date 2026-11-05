@@ -28,7 +28,7 @@ Gateway (NGINX)
 services/                  web, gateway and API microservices
 packages/common/           shared Python HTTP and storage helpers
 infra/k8s/base/            reusable Kubernetes resources
-infra/k8s/overlays/        dev, QA and production Kustomize overlays
+infra/k8s/overlays/        Dev, QA and Production Kustomize overlays (Staging planned)
 infra/argocd/              Argo CD project and applications
 infra/terraform/           planned EKS/ECR/RDS infrastructure
 scripts/                   image publishing and smoke tests
@@ -36,18 +36,26 @@ scripts/                   image publishing and smoke tests
 docs/                      architecture and operating notes
 ```
 
-## POC first: declarative, Git-managed namespace
+## Dev first: declarative namespace bootstrap
 
-The current `buddu-ebooks` EKS lab is bootstrapped incrementally. **Do not apply the Dev overlay to the POC.** Begin with `infra/k8s/overlays/poc/`, which contains only the `cloudops-poc` Namespace and intentionally creates no Pods or LoadBalancers.
+We use a single application source codebase and promote immutable, tested microservice images through **Dev → QA → Staging → Production**. Our current EKS lab is the **Dev** environment, not a separate POC.
+
+Start with the already-versioned namespace manifest. Do **not** apply the full Dev Kustomize overlay yet: it currently includes all 11 workloads, placeholder ECR images, and a LoadBalancer configuration.
 
 ```bash
-kubectl kustomize infra/k8s/overlays/poc
-kubectl apply --dry-run=server -k infra/k8s/overlays/poc
-kubectl apply -k infra/k8s/overlays/poc
-kubectl get ns cloudops-poc --show-labels
+# Check your active cluster before changing anything
+kubectl config current-context
+kubectl get nodes -o wide
+
+# Inspect and validate the committed namespace manifest
+kubectl apply --dry-run=server -f infra/k8s/overlays/dev/namespace.yaml
+
+# Bootstrap only the namespace
+kubectl apply -f infra/k8s/overlays/dev/namespace.yaml
+kubectl get namespace cloudops-dev --show-labels
 ```
 
-Read [POC bootstrap](infra/k8s/overlays/poc/README.md) and [implementation plan](docs/POC-IMPLEMENTATION-PLAN.md) for the next stages (images/ECR, capacity, internal services, ALB + HTTPS/DNS, monitoring and GitOps).
+Read [Dev-first implementation plan](docs/DEV-TO-PRODUCTION-IMPLEMENTATION-PLAN.md) for the deployment sequence, resource capacity, CI/CD, ECR, ALB and observability stages. The full overlay remains in `infra/k8s/overlays/dev/` for later use after image and capacity readiness.
 
 ## Local validation
 
@@ -157,6 +165,7 @@ Development and QA use automated synchronization. Production requires a manual A
 |---|---|---|---|
 | Development | `cloudops-dev` | `0.1-dev` | Automated |
 | QA | `cloudops-qa` | `0.1-qa` | Automated |
+| Staging (planned) | `cloudops-staging` | Promoted image digest | Approval gate |
 | Production | `cloudops-prod` | `0.1` | Manual approval |
 
 ## Current persistence scope
