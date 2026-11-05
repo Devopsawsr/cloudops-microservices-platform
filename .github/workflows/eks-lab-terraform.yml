@@ -73,16 +73,32 @@ jobs:
 
       - name: Terraform plan
         if: ${{ inputs.action == 'plan' }}
-        run: terraform plan -input=false -no-color
+        run: terraform plan -input=false -no-color -lock-timeout=5m
 
       - name: Terraform apply
         if: ${{ inputs.action == 'apply' }}
         run: |
-          terraform plan -input=false -out=tfplan
-          terraform apply -input=false -auto-approve tfplan
+          terraform plan -input=false -lock-timeout=5m -out=tfplan
+          terraform apply -input=false -lock-timeout=5m -auto-approve tfplan
+
+      - name: Explain state-lock failures
+        if: ${{ failure() }}
+        run: |
+          {
+            echo "## Terraform failure triage"
+            echo ""
+            echo "If the run failed with 'Error acquiring the state lock' (S3 412):"
+            echo "1. Check that no local Terraform or other GitHub Actions run is still using this same S3 state."
+            echo "2. Review the lock's ID, Who, Operation and Created timestamp in the failed logs."
+            echo "3. Only after proving the original operation has ended, use terraform force-unlock LOCK_ID from a properly initialized local checkout."
+            echo "4. Never use -lock=false or delete the state file to bypass a live lock."
+            echo "5. Re-run plan before attempting apply."
+            echo ""
+            echo "Remote state: s3://reddy-buddu/cloudops/eks-lab/dev/terraform.tfstate"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Terraform destroy
         if: ${{ inputs.action == 'destroy' }}
         run: |
-          terraform plan -destroy -input=false -out=tfplan
+          terraform plan -destroy -input=false -lock-timeout=5m -out=tfplan
           terraform apply -input=false -auto-approve tfplan
