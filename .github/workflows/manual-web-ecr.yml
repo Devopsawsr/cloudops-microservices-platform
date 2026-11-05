@@ -14,6 +14,7 @@ env:
   AWS_REGION: us-east-1
   AWS_ACCOUNT_ID: "981625497990"
   ECR_REPOSITORY: reddy/buddu-ebooks-web
+  ECR_PUBLISH_ROLE_ARN: arn:aws:iam::981625497990:role/Role-all-service
   LOCAL_IMAGE: cloudops-web-ci:${{ github.sha }}
 
 jobs:
@@ -107,25 +108,10 @@ jobs:
           path: /tmp
       - name: Load scanned image
         run: docker load --input /tmp/web-image.tar
-      - name: Check publishing role
-        env:
-          ROLE_ARN: ${{ secrets.AWS_ECR_PUBLISH_ROLE_ARN }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$ROLE_ARN" ]]; then
-            echo "::error::Missing aws-dev environment secret AWS_ECR_PUBLISH_ROLE_ARN."
-            exit 1
-          fi
-          # Reject repository URLs, access keys, malformed IAM ARNs and hidden whitespace.
-          # Do not print the secret value in logs.
-          if [[ ! "$ROLE_ARN" =~ ^arn:aws:iam::981625497990:role/[A-Za-z0-9+=,.@_/-]+$ ]]; then
-            echo "::error::AWS_ECR_PUBLISH_ROLE_ARN must be a complete IAM role ARN for AWS account 981625497990 (arn:aws:iam::981625497990:role/ROLE_NAME). Check the aws-dev environment secret."
-            exit 1
-          fi
       - name: Authenticate to AWS using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ECR_PUBLISH_ROLE_ARN }}
+          role-to-assume: ${{ env.ECR_PUBLISH_ROLE_ARN }}
           aws-region: us-east-1
           role-session-name: github-web-ecr-publish
       - name: Verify account and repository
@@ -159,19 +145,10 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Validate ECR publishing IAM role ARN
-        env:
-          ROLE_ARN: ${{ secrets.AWS_ECR_PUBLISH_ROLE_ARN }}
-        run: |
-          set -euo pipefail
-          if [[ ! "$ROLE_ARN" =~ ^arn:aws:iam::981625497990:role/[A-Za-z0-9+=,.@_/-]+$ ]]; then
-            echo "::error::Invalid aws-dev environment secret AWS_ECR_PUBLISH_ROLE_ARN: expected a complete IAM role ARN for account 981625497990."
-            exit 1
-          fi
       - name: Authenticate to AWS using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ECR_PUBLISH_ROLE_ARN }}
+          role-to-assume: ${{ env.ECR_PUBLISH_ROLE_ARN }}
           aws-region: us-east-1
           role-session-name: github-web-ecr-verify
       - name: Verify image digest and report release artifact
