@@ -17,47 +17,70 @@ on:
         type: string
         required: false
 
+# OIDC is granted only to jobs that access AWS.
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
   group: eks-lab-terraform
   cancel-in-progress: false
 
+env:
+  AWS_REGION: us-east-1
+  AWS_DEFAULT_REGION: us-east-1
+  TF_IN_AUTOMATION: "true"
+  TF_VERSION: "1.14.0"
+
 jobs:
-  terraform:
+  validate:
+    name: "01 | Validate Terraform configuration"
     runs-on: ubuntu-latest
-    environment: aws-dev
     defaults:
       run:
         working-directory: infra/terraform/envs/dev
-
-    env:
-      AWS_REGION: us-east-1
-      AWS_DEFAULT_REGION: us-east-1
-      TF_IN_AUTOMATION: "true"
-
     steps:
-      - name: Validate destroy confirmation
-        if: ${{ inputs.action == 'destroy' && inputs.confirmation != 'DESTROY' }}
+      - name: Require explicit destroy confirmation
+        env:
+          OPERATION: ${{ inputs.action }}
+          CONFIRMATION: ${{ inputs.confirmation }}
         run: |
-          echo "Destroy requires confirmation DESTROY"
-          exit 1
-
+          if [[ "$OPERATION" == "destroy" && "$CONFIRMATION" != "DESTROY" ]]; then
+            echo "::error::Destroy requires confirmation DESTROY"
+            exit 1
+          fi
       - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: Check formatting
+        run: terraform fmt -check
+      - name: Initialize without AWS backend
+        run: terraform init -backend=false -input=false
+      - name: Validate configuration
+        run: terraform validate -no-color
 
+  reconcile:
+    name: "02 | Reconcile owned IAM state"
+    needs: validate
+    if: ${{ inputs.action == 'recover' || inputs.action == 'apply' }}
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
           aws-region: us-east-1
-
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.14.0"
-
       - name: Initialize remote Terraform state
         run: |
           terraform init -input=false \
@@ -66,53 +89,222 @@ jobs:
             -backend-config="region=us-east-1" \
             -backend-config="encrypt=true" \
             -backend-config="use_lockfile=true"
-
-      - name: Format and validate
-        run: |
-          terraform fmt -check
-          terraform validate
-
-      - name: Recover existing POC IAM resources into Terraform state
-        if: ${{ inputs.action == 'recover' }}
+      - name: Reconcile only IAM resources with verified ownership tags
         run: bash ../../../../scripts/reconcile-eks-iam.sh
 
-      - name: Review plan after recovery
-        if: ${{ inputs.action == 'recover' }}
-        run: terraform plan -input=false -no-color -lock-timeout=5m
-
-      - name: Terraform plan
-        if: ${{ inputs.action == 'plan' }}
-        run: terraform plan -input=false -no-color -lock-timeout=5m
-
-      # Recover IAM objects from interrupted applies, only when ownership tags match.
-      - name: Reconcile existing POC IAM before apply
-        if: ${{ inputs.action == 'apply' }}
-        run: bash ../../../../scripts/reconcile-eks-iam.sh
-
-      - name: Terraform apply
-        if: ${{ inputs.action == 'apply' }}
+  plan:
+    name: "03 | Plan infrastructure changes"
+    needs: [validate, reconcile]
+    # A skipped reconcile job is expected for plan-only, not an error.
+    if: ${{ !cancelled() && inputs.action != 'destroy' && needs.validate.result == 'success' && (needs.reconcile.result == 'success' || needs.reconcile.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Initialize remote Terraform state
         run: |
+          terraform init -input=false \
+            -backend-config="bucket=reddy-buddu" \
+            -backend-config="key=cloudops/eks-lab/dev/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+      - name: Generate and review Terraform plan
+        run: |
+          set -euo pipefail
           terraform plan -input=false -lock-timeout=5m -out=tfplan
-          terraform apply -input=false -lock-timeout=5m -auto-approve tfplan
+          terraform show -no-color tfplan
+      # Saved plan can contain sensitive data. Keep short-lived and limit Actions access.
+      - name: Pass the exact approved plan to Apply
+        if: ${{ inputs.action == 'apply' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: eks-dev-apply-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/terraform/envs/dev/tfplan
+          retention-days: 1
+          if-no-files-found: error
 
-      - name: Explain state-lock failures
-        if: ${{ failure() }}
+  apply:
+    name: "04 | Apply saved Terraform plan"
+    needs: plan
+    if: ${{ inputs.action == 'apply' }}
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Initialize remote Terraform state
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=reddy-buddu" \
+            -backend-config="key=cloudops/eks-lab/dev/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+      - name: Download saved plan
+        uses: actions/download-artifact@v4
+        with:
+          name: eks-dev-apply-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/terraform/envs/dev
+      - name: Apply exactly the saved plan
+        run: terraform apply -input=false -lock-timeout=5m -auto-approve tfplan
+
+  destroy_plan:
+    name: "03 | Plan infrastructure destruction"
+    needs: validate
+    if: ${{ inputs.action == 'destroy' }}
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Initialize remote Terraform state
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=reddy-buddu" \
+            -backend-config="key=cloudops/eks-lab/dev/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+      - name: Generate and review destroy plan
+        run: |
+          set -euo pipefail
+          terraform plan -destroy -input=false -lock-timeout=5m -out=tfplan
+          terraform show -no-color tfplan
+      - name: Pass exact destroy plan to Destroy
+        uses: actions/upload-artifact@v4
+        with:
+          name: eks-dev-destroy-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/terraform/envs/dev/tfplan
+          retention-days: 1
+          if-no-files-found: error
+
+  destroy:
+    name: "04 | Destroy using saved plan"
+    needs: destroy_plan
+    if: ${{ inputs.action == 'destroy' && inputs.confirmation == 'DESTROY' }}
+    runs-on: ubuntu-latest
+    environment: aws-dev
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Initialize remote Terraform state
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=reddy-buddu" \
+            -backend-config="key=cloudops/eks-lab/dev/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+      - name: Download saved destroy plan
+        uses: actions/download-artifact@v4
+        with:
+          name: eks-dev-destroy-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: infra/terraform/envs/dev
+      - name: Destroy using exactly the saved plan
+        run: terraform apply -input=false -lock-timeout=5m -auto-approve tfplan
+
+  summary:
+    name: "05 | Execution summary and troubleshooting"
+    needs: [validate, reconcile, plan, apply, destroy_plan, destroy]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report stage results
+        env:
+          OPERATION: ${{ inputs.action }}
+          VALIDATE: ${{ needs.validate.result }}
+          RECONCILE: ${{ needs.reconcile.result }}
+          PLAN: ${{ needs.plan.result }}
+          APPLY: ${{ needs.apply.result }}
+          DESTROY_PLAN: ${{ needs.destroy_plan.result }}
+          DESTROY: ${{ needs.destroy.result }}
         run: |
           {
-            echo "## Terraform failure triage"
+            echo "## EKS Lab Terraform: $OPERATION"
             echo ""
-            echo "If the run failed with 'Error acquiring the state lock' (S3 412):"
-            echo "1. Check that no local Terraform or other GitHub Actions run is still using this same S3 state."
-            echo "2. Review the lock's ID, Who, Operation and Created timestamp in the failed logs."
-            echo "3. Only after proving the original operation has ended, use terraform force-unlock LOCK_ID from a properly initialized local checkout."
-            echo "4. Never use -lock=false or delete the state file to bypass a live lock."
-            echo "5. Re-run plan before attempting apply."
+            echo "| Stage | Result |"
+            echo "|---|---|"
+            echo "| Validation | $VALIDATE |"
+            echo "| IAM recovery (recover/apply only) | $RECONCILE |"
+            echo "| Change plan | $PLAN |"
+            echo "| Apply | $APPLY |"
+            echo "| Destroy plan | $DESTROY_PLAN |"
+            echo "| Destroy | $DESTROY |"
             echo ""
+            echo "If Terraform reported an S3 state-lock error, confirm no run still holds the lock."
+            echo "Review lock details before any force-unlock. Never use -lock=false to bypass a live lock."
             echo "Remote state: s3://reddy-buddu/cloudops/eks-lab/dev/terraform.tfstate"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Terraform destroy
-        if: ${{ inputs.action == 'destroy' }}
+      - name: Mark failures accurately
+        env:
+          OPERATION: ${{ inputs.action }}
+          VALIDATE: ${{ needs.validate.result }}
+          RECONCILE: ${{ needs.reconcile.result }}
+          PLAN: ${{ needs.plan.result }}
+          APPLY: ${{ needs.apply.result }}
+          DESTROY_PLAN: ${{ needs.destroy_plan.result }}
+          DESTROY: ${{ needs.destroy.result }}
         run: |
-          terraform plan -destroy -input=false -lock-timeout=5m -out=tfplan
-          terraform apply -input=false -auto-approve tfplan
+          set -euo pipefail
+          [[ "$VALIDATE" == success ]] || exit 1
+          case "$OPERATION" in
+            plan) [[ "$PLAN" == success ]] ;;
+            recover) [[ "$RECONCILE" == success && "$PLAN" == success ]] ;;
+            apply) [[ "$RECONCILE" == success && "$PLAN" == success && "$APPLY" == success ]] ;;
+            destroy) [[ "$DESTROY_PLAN" == success && "$DESTROY" == success ]] ;;
+            *) exit 1 ;;
+          esac
