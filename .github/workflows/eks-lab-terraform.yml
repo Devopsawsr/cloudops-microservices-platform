@@ -135,7 +135,7 @@ jobs:
   reconcile:
     name: "03 | Reconcile IAM (${{ inputs.target_environment }})"
     needs: [validate, security]
-    if: ${{ inputs.action == 'recover' || inputs.action == 'apply' }}
+    if: ${{ inputs.action == 'recover' }}
     runs-on: ubuntu-latest
     environment: aws-dev
     permissions:
@@ -168,7 +168,7 @@ jobs:
   plan:
     name: "04 | Plan infrastructure (${{ inputs.target_environment }})"
     needs: [validate, security, reconcile]
-    # A skipped reconcile job is expected for plan-only, not an error.
+    # Reconciliation is a separate explicit state-changing recovery operation. It never runs implicitly for Apply.
     if: ${{ !cancelled() && inputs.action != 'destroy' && needs.validate.result == 'success' && needs.security.result == 'success' && (needs.reconcile.result == 'success' || needs.reconcile.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment: aws-dev
@@ -419,7 +419,7 @@ jobs:
             echo "| TFLint / Checkov | $SECURITY |"
             echo "| Human approval | $APPROVAL |"
             echo "| EKS post-apply verification | $VERIFY |"
-            echo "| IAM recovery (recover/apply only) | $RECONCILE |"
+            echo "| IAM recovery (recover only) | $RECONCILE |"
             echo "| Change plan | $PLAN |"
             echo "| Apply | $APPLY |"
             echo "| Destroy plan | $DESTROY_PLAN |"
@@ -447,7 +447,7 @@ jobs:
           case "$OPERATION" in
             plan) [[ "$PLAN" == success ]] ;;
             recover) [[ "$RECONCILE" == success && "$PLAN" == success ]] ;;
-            apply) [[ "$RECONCILE" == success && "$PLAN" == success && "$APPROVAL" == success && "$APPLY" == success && "$VERIFY" == success ]] ;;
+            apply) [[ "$PLAN" == success && "$APPROVAL" == success && "$APPLY" == success && "$VERIFY" == success ]] ;;
             destroy) [[ "$DESTROY_PLAN" == success && "$APPROVAL" == success && "$DESTROY" == success ]] ;;
             *) exit 1 ;;
           esac
