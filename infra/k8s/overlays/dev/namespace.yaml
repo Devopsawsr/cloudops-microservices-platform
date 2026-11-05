@@ -4,3 +4,6 @@ metadata:
   name: cloudops-dev
   labels:
     env: dev
+    environment: dev
+    app.kubernetes.io/part-of: cloudops
+    app.kubernetes.io/managed-by: kustomize
