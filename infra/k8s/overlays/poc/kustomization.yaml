@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Bootstrap only. Do not include ../../base until container images,
+# worker capacity, and persistent storage are reviewed.
+namespace: cloudops-poc
+resources:
+  - namespace.yaml
