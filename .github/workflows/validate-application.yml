@@ -41,6 +41,9 @@ jobs:
       - name: Render Kubernetes environments
         run: make validate-k8s
 
+      - name: Render Web-only Dev rollout
+        run: kubectl kustomize infra/k8s/overlays/dev/web > /tmp/cloudops-dev-web.yaml
+
       - name: Check manifests for unresolved placeholder images
         run: |
           set -euo pipefail
