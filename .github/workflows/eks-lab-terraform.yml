@@ -9,6 +9,7 @@ on:
         required: true
         options:
           - plan
+          - recover
           - apply
           - destroy
       confirmation:
@@ -70,6 +71,14 @@ jobs:
         run: |
           terraform fmt -check
           terraform validate
+
+      - name: Recover existing POC IAM resources into Terraform state
+        if: ${{ inputs.action == 'recover' }}
+        run: bash ../../../../scripts/reconcile-eks-iam.sh
+
+      - name: Review plan after recovery
+        if: ${{ inputs.action == 'recover' }}
+        run: terraform plan -input=false -no-color -lock-timeout=5m
 
       - name: Terraform plan
         if: ${{ inputs.action == 'plan' }}
