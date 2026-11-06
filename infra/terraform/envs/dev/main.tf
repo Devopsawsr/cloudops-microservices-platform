@@ -52,6 +52,11 @@ data "aws_iam_role" "cluster" {
 }
 
 resource "aws_eks_cluster" "lab" {
+  # Low-cost, temporary practice cluster. Exceptions apply ONLY to this EKS resource.
+  # checkov:skip=CKV_AWS_37:Lab cost exception; control-plane CloudWatch logs are not enabled to avoid ingestion and storage charges.
+  # checkov:skip=CKV_AWS_38:Temporary lab uses a public EKS endpoint for access from a changing home IP; review and restrict CIDRs before shared use.
+  # checkov:skip=CKV_AWS_39:Lab requires public API access from a laptop; no private VPN or NAT infrastructure is provisioned.
+  # checkov:skip=CKV_AWS_58:EKS Kubernetes 1.34 automatically encrypts API data with an AWS-owned key; no customer-managed KMS key is required for this lab.
   name     = var.cluster_name
   role_arn = data.aws_iam_role.cluster.arn
   version  = var.kubernetes_version
