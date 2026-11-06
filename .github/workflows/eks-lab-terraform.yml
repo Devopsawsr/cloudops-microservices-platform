@@ -202,7 +202,7 @@ jobs:
           terraform plan -input=false -lock-timeout=5m -out=tfplan
           terraform show -no-color tfplan
       # Saved plan can contain sensitive data. Keep short-lived and limit Actions access.
-      - name: Pass the exact approved plan to Apply
+      - name: Pass the exact generated plan to Apply
         if: ${{ inputs.action == 'apply' }}
         uses: actions/upload-artifact@v4
         with:
@@ -212,9 +212,10 @@ jobs:
           if-no-files-found: error
 
   apply:
-    name: "06 | Apply (${{ inputs.target_environment }})"
-    needs: [plan, approval]
-    if: ${{ inputs.action == 'apply' && needs.approval.result == 'success' }}
+    name: "05 | Auto-apply Dev Terraform"
+    needs: plan
+    # Dev-only auto-apply; validation, security and saved plan must all pass first.
+    if: ${{ inputs.action == 'apply' && inputs.target_environment == 'dev' && needs.plan.result == 'success' }}
     runs-on: ubuntu-latest
     environment: aws-dev
     permissions:
@@ -293,9 +294,10 @@ jobs:
           if-no-files-found: error
 
   destroy:
-    name: "06 | Destroy (${{ inputs.target_environment }})"
-    needs: [destroy_plan, approval]
-    if: ${{ inputs.action == 'destroy' && inputs.confirmation == 'DESTROY' && needs.approval.result == 'success' }}
+    name: "05 | Destroy Dev Terraform (DESTROY confirmation)"
+    needs: destroy_plan
+    # Destroy still requires a deliberate manual trigger and exact DESTROY confirmation.
+    if: ${{ inputs.action == 'destroy' && inputs.target_environment == 'dev' && inputs.confirmation == 'DESTROY' && needs.destroy_plan.result == 'success' }}
     runs-on: ubuntu-latest
     environment: aws-dev
     permissions:
@@ -330,28 +332,8 @@ jobs:
       - name: Destroy using exactly the saved plan
         run: terraform apply -input=false -lock-timeout=5m -auto-approve tfplan
 
-  approval:
-    name: "05 | Human approval (${{ inputs.target_environment }})"
-    needs: [plan, destroy_plan]
-    if: ${{ !cancelled() && ((inputs.action == 'apply' && needs.plan.result == 'success') || (inputs.action == 'destroy' && needs.destroy_plan.result == 'success')) }}
-    runs-on: ubuntu-latest
-    # Set REQUIRED REVIEWERS in Settings > Environments > terraform-change-approval.
-    # GitHub environment alone does not enforce review until protection is configured.
-    environment: terraform-change-approval
-    steps:
-      - name: Fail closed until GitHub environment protection is configured
-        env:
-          GATE_CONFIGURED: ${{ vars.TF_APPROVAL_GATE_CONFIGURED }}
-        run: |
-          set -euo pipefail
-          if [[ "$GATE_CONFIGURED" != "true" ]]; then
-            echo "::error::Configure terraform-change-approval Required reviewers and set repository variable TF_APPROVAL_GATE_CONFIGURED=true only after verifying protection. No Apply/Destroy is allowed until then."
-            exit 1
-          fi
-          echo "Approval gate was acknowledged by the protected GitHub environment."
-
   verify_apply:
-    name: "07 | Verify EKS (${{ inputs.target_environment }})"
+    name: "06 | Verify EKS health after Apply"
     needs: apply
     if: ${{ inputs.action == 'apply' }}
     runs-on: ubuntu-latest
@@ -391,8 +373,8 @@ jobs:
           [[ "$STATUS" == ACTIVE && "$NG_STATUS" == ACTIVE ]] || { echo "::error::EKS or its managed node group is not ACTIVE"; exit 1; }
 
   summary:
-    name: "08 | Execution summary (${{ inputs.target_environment }})"
-    needs: [validate, security, reconcile, plan, approval, apply, verify_apply, destroy_plan, destroy]
+    name: "07 | Execution summary (${{ inputs.target_environment }})"
+    needs: [validate, security, reconcile, plan, apply, verify_apply, destroy_plan, destroy]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -402,7 +384,6 @@ jobs:
           TARGET_ENV: ${{ inputs.target_environment }}
           VALIDATE: ${{ needs.validate.result }}
           SECURITY: ${{ needs.security.result }}
-          APPROVAL: ${{ needs.approval.result }}
           VERIFY: ${{ needs.verify_apply.result }}
           RECONCILE: ${{ needs.reconcile.result }}
           PLAN: ${{ needs.plan.result }}
@@ -417,7 +398,6 @@ jobs:
             echo "|---|---|"
             echo "| Validation | $VALIDATE |"
             echo "| TFLint / Checkov | $SECURITY |"
-            echo "| Human approval | $APPROVAL |"
             echo "| EKS post-apply verification | $VERIFY |"
             echo "| IAM recovery (recover only) | $RECONCILE |"
             echo "| Change plan | $PLAN |"
@@ -434,7 +414,6 @@ jobs:
           OPERATION: ${{ inputs.action }}
           VALIDATE: ${{ needs.validate.result }}
           SECURITY: ${{ needs.security.result }}
-          APPROVAL: ${{ needs.approval.result }}
           VERIFY: ${{ needs.verify_apply.result }}
           RECONCILE: ${{ needs.reconcile.result }}
           PLAN: ${{ needs.plan.result }}
@@ -447,7 +426,7 @@ jobs:
           case "$OPERATION" in
             plan) [[ "$PLAN" == success ]] ;;
             recover) [[ "$RECONCILE" == success && "$PLAN" == success ]] ;;
-            apply) [[ "$PLAN" == success && "$APPROVAL" == success && "$APPLY" == success && "$VERIFY" == success ]] ;;
-            destroy) [[ "$DESTROY_PLAN" == success && "$APPROVAL" == success && "$DESTROY" == success ]] ;;
+            apply) [[ "$PLAN" == success && "$APPLY" == success && "$VERIFY" == success ]] ;;
+            destroy) [[ "$DESTROY_PLAN" == success && "$DESTROY" == success ]] ;;
             *) exit 1 ;;
           esac
