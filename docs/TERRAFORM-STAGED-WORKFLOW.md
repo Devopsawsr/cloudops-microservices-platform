@@ -23,22 +23,27 @@ In **Actions → EKS Lab - Terraform → Run workflow**, choose:
 
 1. **01 Validate:** checkout, environment isolation, destroy confirmation, Terraform fmt/init/validate
 2. **02 TFLint and Checkov:** independent source quality/security checks (audit reporting for `plan` or `recover`, blocking for `apply` or `destroy`)
-3. **03 IAM reconciliation:** only explicit `recover`; safely imports only resources with verified ownership tags, never before an Apply approval
+3. **03 IAM reconciliation:** only explicit `recover`; safely imports only resources with verified ownership tags; not triggered implicitly by Apply
 4. **04 Terraform Plan / Destroy Plan:** runs the requested plan against remote state; saves an exact plan artifact only for apply/destroy
-5. **05 Human approval:** only `apply` and `destroy`; requires a configured protected GitHub environment
-6. **06 Apply / Destroy:** mutually exclusive, uses a saved plan (no silent re-planning)
-7. **07 EKS post-Apply verification:** checks Terraform outputs and ACTIVE status for the EKS cluster and managed node group
-8. **08 Summary:** reports all stage results and fails if any required stage did not succeed
+5. **05 Auto-Apply / Destroy:** mutually exclusive Dev-only operations, run automatically after all prerequisite stages pass, and use the saved plan (no silent re-planning)
+6. **06 EKS post-Apply verification:** checks Terraform outputs and ACTIVE status for the EKS cluster and managed node group
+7. **07 Summary:** reports all stage results and fails if any required stage did not succeed
 
 Non-selected operations remain **skipped (grey)** in the Actions graph.
 
-## Required setup before Apply / Destroy
+## Dev automatic apply and destroy
 
-The approval job **fails closed by default**. A maintainer must create and configure GitHub Environment `terraform-change-approval` with **Required reviewers** and appropriate deployment branch restrictions. After verifying the protection, set GitHub repository variable `TF_APPROVAL_GATE_CONFIGURED=true`. A variable alone does not create reviewer enforcement. Keep the AWS `aws-dev` environment secret `AWS_TERRAFORM_ROLE_ARN` for backend access.
+The temporary Dev lab has **no separate GitHub approval job**. When you manually dispatch `action=apply`, `target_environment=dev`, the pipeline will **automatically apply** the saved Terraform plan after formatting, validation, TFLint, Checkov and the plan stage pass. This can incur AWS charges or change existing resources; first use `plan` if you want to inspect changes without applying.
 
-Review the planned AWS resource changes before approving. GitHub Actions plan artifacts can contain sensitive data: restrict workflow and artifact access, keep their one-day retention, and avoid sharing them. The current repository is public, so consider a private repository and a more restricted plan handoff before any sensitive production usage.
+When you manually dispatch `action=destroy`, `target_environment=dev`, you must also type the exact confirmation `DESTROY`. After security checks and the destruction plan succeed, the pipeline will automatically execute the saved destroy plan **without another approval prompt**. Destroy is destructive and can delete EKS infrastructure and worker nodes.
 
-Destroy additionally requires the exact manual input `DESTROY`. No infrastructure resource operations are triggered by pushing workflow changes.
+The Dev jobs still use the GitHub environment `aws-dev` and its OIDC role secret `AWS_TERRAFORM_ROLE_ARN`. If that environment itself has Required reviewers configured, GitHub will still pause its jobs until those reviewers approve; this workflow does not modify GitHub environment protection rules.
+
+Review the proposed AWS changes carefully. Saved plan artifacts can contain sensitive data; limit Actions artifact access, keep one-day retention, and avoid sharing them. The repository may be public; do not place real credentials or sensitive state in plan output.
+
+**QA, Staging and Production remain blocked** until isolated infrastructure config, state and permissions are provisioned. Do not copy the Dev no-approval behavior to production.
+
+No infrastructure resource operations are triggered by merging workflow changes. They occur only when you manually dispatch an operation.
 
 ## Next hardening items
 
