@@ -215,7 +215,8 @@ jobs:
     name: "05 | Auto-apply Dev Terraform"
     needs: plan
     # Dev-only auto-apply; validation, security and saved plan must all pass first.
-    if: ${{ inputs.action == 'apply' && inputs.target_environment == 'dev' && needs.plan.result == 'success' }}
+    # Explicitly override implicit success() which propagates skipped ancestor jobs.
+    if: ${{ !cancelled() && inputs.action == 'apply' && inputs.target_environment == 'dev' && needs.plan.result == 'success' }}
     runs-on: ubuntu-latest
     environment: aws-dev
     permissions:
@@ -297,7 +298,7 @@ jobs:
     name: "05 | Destroy Dev Terraform (DESTROY confirmation)"
     needs: destroy_plan
     # Destroy still requires a deliberate manual trigger and exact DESTROY confirmation.
-    if: ${{ inputs.action == 'destroy' && inputs.target_environment == 'dev' && inputs.confirmation == 'DESTROY' && needs.destroy_plan.result == 'success' }}
+    if: ${{ !cancelled() && inputs.action == 'destroy' && inputs.target_environment == 'dev' && inputs.confirmation == 'DESTROY' && needs.destroy_plan.result == 'success' }}
     runs-on: ubuntu-latest
     environment: aws-dev
     permissions:
@@ -335,7 +336,7 @@ jobs:
   verify_apply:
     name: "06 | Verify EKS health after Apply"
     needs: apply
-    if: ${{ inputs.action == 'apply' }}
+    if: ${{ !cancelled() && inputs.action == 'apply' && needs.apply.result == 'success' }}
     runs-on: ubuntu-latest
     environment: aws-dev
     permissions:
