@@ -1,0 +1,29 @@
+name: Validate Dev Terraform security exceptions
+
+on:
+  pull_request:
+    paths:
+      - "infra/terraform/envs/dev/**"
+      - ".github/workflows/validate-terraform-security.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/terraform/envs/dev/**"
+      - ".github/workflows/validate-terraform-security.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  checkov:
+    name: Checkov policies (Dev Terraform)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Checkov
+        run: python -m pip install --disable-pip-version-check checkov==3.4.3
+      - name: Scan all remaining Terraform security checks
+        run: checkov --directory infra/terraform/envs/dev --framework terraform --quiet --compact
