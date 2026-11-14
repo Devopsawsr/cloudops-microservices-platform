@@ -15,7 +15,7 @@ resources:
 images:
   - name: cloudops/web
     newName: 981625497990.dkr.ecr.us-east-1.amazonaws.com/reddy/buddu-ebooks-web
-    newTag: web-eff6d8b0d5b7-42081295085-1
+    newTag: web-a6ad26fcd016-43596517467-1
 
 replicas:
   - name: web
