@@ -1,0 +1,70 @@
+name: Validate Dev Web Kubernetes manifests
+
+on:
+  pull_request:
+    paths:
+      - "infra/k8s/base/web/**"
+      - "infra/k8s/base/common/**"
+      - "infra/k8s/overlays/dev/**"
+      - ".github/workflows/validate-dev-web-k8s.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/k8s/base/web/**"
+      - "infra/k8s/base/common/**"
+      - "infra/k8s/overlays/dev/**"
+      - ".github/workflows/validate-dev-web-k8s.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  render-and-check:
+    name: Render and verify isolated Dev Web resources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.34.1
+      - name: Render Dev overlay
+        run: kubectl kustomize infra/k8s/overlays/dev > /tmp/dev-web-rendered.yaml
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate resources, ECR image and service exposure
+        run: |
+          python -m pip install --disable-pip-version-check PyYAML==6.0.3
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+
+          docs = [d for d in yaml.safe_load_all(Path("/tmp/dev-web-rendered.yaml").read_text()) if d]
+          kinds = sorted((d["kind"], d["metadata"]["name"]) for d in docs)
+          expected = sorted([
+              ("Namespace", "cloudops-dev"),
+              ("ConfigMap", "cloudops-config"),
+              ("ServiceAccount", "cloudops"),
+              ("Deployment", "web"),
+              ("Service", "web"),
+          ])
+          assert kinds == expected, f"Unexpected Dev resources: {kinds}"
+          namespaced = [d for d in docs if d["kind"] != "Namespace"]
+          assert all(d["metadata"].get("namespace") == "cloudops-dev" for d in namespaced)
+          deployment = next(d for d in docs if d["kind"] == "Deployment")
+          spec = deployment["spec"]
+          assert spec["replicas"] == 1
+          pod = spec["template"]["spec"]
+          assert pod["serviceAccountName"] == "cloudops"
+          assert len(pod["containers"]) == 1
+          image = pod["containers"][0]["image"]
+          assert image == ("981625497990.dkr.ecr.us-east-1.amazonaws.com/"
+                           "reddy/buddu-ebooks-web:web-eff6d8b0d5b7-42081295085-1"), image
+          assert pod["containers"][0]["readinessProbe"]
+          assert pod["containers"][0]["livenessProbe"]
+          service = next(d for d in docs if d["kind"] == "Service")
+          assert service["spec"].get("type", "ClusterIP") == "ClusterIP"
+          assert service["spec"]["ports"][0]["port"] == 80
+          assert service["spec"]["selector"]["app"] == "web"
+          print("PASS: exactly five Web-only resources, namespace, ECR image and ClusterIP verified")
+          PY
