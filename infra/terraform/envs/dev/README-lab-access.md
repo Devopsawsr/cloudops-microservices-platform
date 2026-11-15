@@ -1,36 +1,84 @@
-# EKS learning-lab IAM roles
+# EKS Dev lab — reliable kubectl and AWS Console access
 
-This branch changes the infrastructure to **reuse** these IAM roles:
+This is a **temporary, low-cost learning lab**, not a production IAM design. The Terraform environment is `infra/terraform/envs/dev`.
 
-- EKS cluster service role: `EKS-Cluster` (must trust `eks.amazonaws.com` and have `AmazonEKSClusterPolicy`).
-- EKS managed node role: `Role-all-service` (must trust `ec2.amazonaws.com` and include worker-node, ECR image pulling and VPC CNI permissions).
-- kubectl administrator: Terraform creates `buddu-ebooks-lab-admin` with EKS `AmazonEKSClusterAdminPolicy`. **Keep this separate from the managed node role**.
+## IAM roles and cluster
 
-> Development-only lab: the existing broad node role is reused as requested. In production use a least-privilege node role and no root credentials.
+- **EKS cluster:** `reddy-ebooks` in `us-east-1` (AWS account `981625497990`).
+- **EKS control-plane service role:** existing IAM role `EKS-Cluster`; used by EKS itself, **not** by kubectl.
+- **Managed EC2 worker role:** Terraform-managed `reddy-ebooks-node-role`; worker permissions only, **not** Kubernetes cluster admin.
+- **Terraform GitHub Actions role:** the value of the GitHub `aws-dev` environment secret `AWS_TERRAFORM_ROLE_ARN`. This may also receive initial bootstrap access as cluster creator, but it is not the intended local kubectl identity.
+- **Human lab administrator role:** Terraform-managed `reddy-ebooks-lab-admin`, with a STANDARD EKS access entry and `AmazonEKSClusterAdminPolicy`, cluster-scoped. This is the identity to assume for kubectl and Kubernetes console access.
 
-## Local AWS profile, once
+Terraform deliberately does **not** depend on an arbitrary IAM user named `eks-lab-user` existing. Create and authorize additional user/SSO roles explicitly if required.
 
-Your original `eks-lab` profile currently identifies as AWS account root. It does **not** match the EKS administrator role.
+## Before starting a new cluster
 
-To keep using `aws eks update-kubeconfig --profile eks-lab` without entering `--role-arn` each time, configure a chained AWS CLI profile **once** after the new cluster and role exist:
+1. Ensure the old lab is fully destroyed through the Terraform workflow and that no old EKS resources remain in Terraform state.
+2. From the repository's `main` branch after this change is merged, launch the existing Terraform workflow: environment **dev**, action **apply**. Wait for the full Terraform apply and verify stages to pass, including access-entry and policy-association creation.
+3. The access entry is created by Terraform. **Do not** create it manually in the EKS Console while Terraform owns it.
+4. EKS access-entry permissions can take a short time to propagate after Apply succeeds.
 
-1. Keep the existing underlying credentials but move them out of `eks-lab` into a different profile such as `eks-source`. **Never commit or paste credentials.**
-2. Add these settings in `~/.aws/config`:
+## Check that the new cluster allows the lab administrator
 
-   ```ini
-   [profile eks-lab]
-   role_arn = arn:aws:iam::981625497990:role/buddu-ebooks-lab-admin
-   source_profile = eks-source
-   region = us-east-1
-   ```
+Use your existing AWS profile for *read-only checks*:
 
-3. Run `aws sts get-caller-identity --profile eks-lab`. Its ARN must show `assumed-role/buddu-ebooks-lab-admin`.
-4. Run `aws eks update-kubeconfig --name buddu-ebooks --region us-east-1 --profile eks-lab`, then `kubectl get nodes`.
+```bash
+aws sts get-caller-identity --profile eks-lab
+aws eks describe-cluster --name reddy-ebooks --region us-east-1 --profile eks-lab \
+  --query 'cluster.accessConfig' --output json
+aws eks list-access-entries --cluster-name reddy-ebooks --region us-east-1 --profile eks-lab
+aws eks list-associated-access-policies \
+  --cluster-name reddy-ebooks \
+  --principal-arn arn:aws:iam::981625497990:role/reddy-ebooks-lab-admin \
+  --region us-east-1 --profile eks-lab
+```
 
-Use a dedicated human IAM/SSO role instead of root as the source identity in future. The console session must assume the lab-admin role to access Kubernetes resources; the IAM role used by the EC2 node is unrelated.
+Expected principal: `arn:aws:iam::981625497990:role/reddy-ebooks-lab-admin`, associated with `AmazonEKSClusterAdminPolicy`.
 
-## State and cleanup
+## kubectl — one-time kubeconfig and each new cluster rebuild
 
-This branch references pre-existing IAM roles through Terraform **data sources**; Terraform won't own or delete those roles. The old Terraform-created roles and attachments were previously in Terraform state. Review the plan before applying: it should show their removal only as resources Terraform owns, not deletion of `EKS-Cluster` or `Role-all-service`.
+Your old `eks-lab` profile was identified by AWS STS as **root** (`arn:aws:iam::981625497990:root`). Root is not the role authorized by the EKS access entry. The lab role trust temporarily allows **only the account root principal** to assume the administrator role, so you must use the role for Kubernetes authentication:
 
-Apply this branch **only after the old EKS lab is fully destroyed**. Check that Terraform state and AWS have no remaining EKS cluster, managed node group, or EKS access entry before recreating.
+```bash
+export AWS_PROFILE=eks-lab
+export AWS_DEFAULT_REGION=us-east-1
+aws sts assume-role \
+  --role-arn arn:aws:iam::981625497990:role/reddy-ebooks-lab-admin \
+  --role-session-name verify-eks-admin \
+  --profile eks-lab --query 'AssumedRoleUser.Arn' --output text
+```
+
+The last command should show an `assumed-role/reddy-ebooks-lab-admin/...` ARN. The command does **not** change your profile or save credentials. Never paste credentials or token JSON into a chat, file or repository.
+
+Set kubeconfig to use this administrator role automatically at every kubectl authentication request:
+
+```bash
+aws eks update-kubeconfig \
+  --name reddy-ebooks \
+  --region us-east-1 \
+  --profile eks-lab \
+  --role-arn arn:aws:iam::981625497990:role/reddy-ebooks-lab-admin
+
+kubectl config current-context
+kubectl get nodes
+```
+
+The profile used by kubectl's exec authentication must be able to assume this role (and have permission to describe the cluster when building kubeconfig). You can also get the exact command after Terraform Apply:
+
+```bash
+cd infra/terraform/envs/dev
+terraform output -raw kubectl_command
+```
+
+Do not run `kubectl apply -k` until `kubectl get nodes` works. Skipping OpenAPI validation does not fix authentication.
+
+### Kubernetes access inside the AWS Console
+
+The EKS Console uses the **IAM principal currently signed in**, not the role specified in your local kubeconfig. On the AWS Console role-switcher, switch to the IAM role `reddy-ebooks-lab-admin` in account `981625497990` if your session is allowed to assume it. Then open EKS → `reddy-ebooks` → Compute. Otherwise the Console can display `Unauthorized` even though the node group is `Active`. Console switching behavior depends on how the AWS session was established.
+
+## Production improvements
+
+Never use AWS root for routine CLI or console operations. Replace the lab-only root trust with IAM Identity Center (SSO) or a dedicated federated administrator role using temporary credentials and MFA. Define **named**, least-privilege access entries for each operator; reserve cluster-admin for administrators. Worker nodes must never receive the human administrator access entry.
+
+Deleting and recreating EKS does not inherently solve IAM mismatches. The access entry and policy association must be recreated **and** the correct role must be used by kubectl and the Console.
