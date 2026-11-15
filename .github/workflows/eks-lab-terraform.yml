@@ -1,4 +1,4 @@
-name: EKS Lab - Terraform
+name: EKS Infra - Terraform
 
 on:
   workflow_dispatch:
